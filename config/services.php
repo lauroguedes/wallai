@@ -35,4 +35,7 @@ return [
         ],
     ],
 
+    'unsplash' => [
+        'key' => env('UNSPLASH_KEY'),
+    ]
 ];

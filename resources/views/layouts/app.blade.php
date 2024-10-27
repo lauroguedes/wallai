@@ -9,7 +9,7 @@
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="min-h-screen antialiased text-[#242e42]">
+    <body class="min-h-screen antialiased content-center">
         {{ $slot }}
     </body>
 </html>
