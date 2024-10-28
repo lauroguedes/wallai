@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\ImageType;
+use App\Services\AbstractImageGenerator;
 use Illuminate\Support\Facades\Http;
 use Livewire\Volt\Component;
 
@@ -15,10 +16,10 @@ new class extends Component {
         ['id' => ImageType::Abstract->value, 'name' => ImageType::Abstract->name],
     ];
 
-    public function generate(): void
+    public function generate(AbstractImageGenerator $client): void
     {
         try {
-            $wallpaperData = $this->generateWallpaper();
+            $wallpaperData = $client->generate($this->prompt, $this->selectedOption);
 
             $this->dispatch('wallpaper-generated', $wallpaperData);
         } catch (Throwable $e) {

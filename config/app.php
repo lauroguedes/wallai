@@ -123,4 +123,8 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+     * Image Generator Service
+     * */
+    'image_generator_service' => env('IMAGE_GENERATOR_SERVICE', 'unsplash'),
 ];
