@@ -37,5 +37,14 @@ return [
 
     'unsplash' => [
         'key' => env('UNSPLASH_KEY'),
-    ]
+    ],
+
+    'replicate' => [
+        'key' => env('REPLICATE_API_TOKEN'),
+        'models' => [
+            'flux' => env('REPLICATE_FLUX_MODEL', 'black-forest-labs/flux-schnell'),
+        ],
+        'aspect_ratio' => env('REPLICATE_ASPECT_RATIO', '9:21'),
+        'output_format' => env('REPLICATE_OUTPUT_FORMAT', 'webp'),
+    ],
 ];

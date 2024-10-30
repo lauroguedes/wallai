@@ -19,6 +19,10 @@ abstract class AbstractImageGenerator
     {
         try {
             return Http::withToken($token)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Prefer' => 'wait',
+                ])
                 ->{$method}($url, $params)
                 ->throw();
         } catch (\Throwable $th) {
@@ -34,6 +38,18 @@ abstract class AbstractImageGenerator
         throw new \Exception($error->getMessage());
     }
 
-    abstract public function generate(string $prompt, string $style): ?array;
+    protected function getImage(string $id, array|string $url): array
+    {
+        $url = is_array($url) ? $url[0] : $url;
+
+        return [
+            'id' => $id,
+            'url' => $url,
+        ];
+    }
+
+    abstract public function generate(string $prompt, string $style): array;
     abstract protected function mountPrompt(...$args): string;
+    abstract protected function getEndpoint(): string;
+    abstract protected function mountParams(string $prompt): array;
 }

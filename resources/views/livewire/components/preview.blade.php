@@ -15,14 +15,14 @@ new class extends Component {
 
     public function getImageUrl(): string
     {
-        return $this->wallpaper['urls']['regular'] ?? asset('wallpapers/fog_lake.jpeg');
+        return $this->wallpaper['url'] ?? asset('wallpapers/fog_lake.jpeg');
     }
 
     public function downloadImage(): StreamedResponse
     {
         return response()->streamDownload(function () {
-            echo file_get_contents($this->wallpaper['urls']['full']);
-        }, 'phone_wallpaper.jpg');
+            echo file_get_contents($this->wallpaper['url']);
+        }, 'phone_wallpaper.' . config('services.replicate.output_format'));
     }
 }; ?>
 

@@ -126,5 +126,6 @@ return [
     /*
      * Image Generator Service
      * */
-    'image_generator_service' => env('IMAGE_GENERATOR_SERVICE', 'unsplash'),
+    'image_generator_service' => env('IMAGE_GENERATOR_SERVICE', 'flux'),
+    'image_generator_system_prompt' => env('IMAGE_GENERATOR_SYSTEM_PROMPT', 'A high-quality %s iPhone wallpaper of %s, vertical composition (1170x2532), optimized for mobile display with clear areas for UI elements. %s'),
 ];

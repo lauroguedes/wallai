@@ -26,18 +26,6 @@ new class extends Component {
             dd($e->getMessage());
         }
     }
-
-    private function generateWallpaper(): array
-    {
-        return Http::get('https://api.unsplash.com/photos/random', [
-            'orientation' => 'portrait',
-            'client_id' => config('services.unsplash.key'),
-            'content_filter' => 'high',
-            'topics' => implode(',', ['iPhone Wallpaper', $this->selectedOption, $this->prompt]),
-        ])
-            ->throw()
-            ->json();
-    }
 }; ?>
 
 <div class="flex flex-col gap-2">
