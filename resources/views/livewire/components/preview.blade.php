@@ -13,11 +13,6 @@ new class extends Component {
         $this->wallpaper = $wallpaper;
     }
 
-    public function getImageUrl(): string
-    {
-        return $this->wallpaper['url'] ?? asset('wallpapers/fog_lake.jpeg');
-    }
-
     public function downloadImage(): StreamedResponse
     {
         return response()->streamDownload(function () {
@@ -27,17 +22,21 @@ new class extends Component {
 }; ?>
 
 <div>
-    <div class="mockup-phone">
+    <div class="mockup-phone border-primary">
         <div class="camera"></div>
         <div class="display">
-            <div class="artboard artboard-demo phone-1">
-                <div class="h-full relative">
+            <div class="artboard artboard-demo w-[320px] h-[700px] bg-gradient-to-tr from-slate-700 to-gray-900">
+                <div class="relative">
                     @if($wallpaper)
-                        <x-button wire:click="downloadImage" class="absolute right-5 bottom-5 btn-accent"
+                        <x-button wire:click="downloadImage" class="absolute right-5 bottom-16 btn-accent"
                                   icon="c-arrow-down-tray" spinner/>
+                        <img wire:replace loading="lazy" class="object-cover object-center h-screen" alt="Wallpaper"
+                             src="{{ $wallpaper['url'] }}">
+                    @else
+                        <div class="opacity-20">
+                            <livewire:components.logo/>
+                        </div>
                     @endif
-                    <img loading="lazy" class="object-cover object-center h-screen" alt="Wallpaper"
-                         src="{{ $this->getImageUrl() }}">
                 </div>
             </div>
         </div>

@@ -29,7 +29,8 @@ new class extends Component {
 }; ?>
 
 <div class="flex flex-col gap-2">
-    <x-form wire:submit="generate">
+    <livewire:components.logo/>
+    <x-form class="mt-5" wire:submit="generate">
         <x-radio
             label="Select one"
             :options="$options"

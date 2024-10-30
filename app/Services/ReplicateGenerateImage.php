@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Enums\ImageType;
 
-class Flux extends AbstractImageGenerator
+class ReplicateGenerateImage extends AbstractImageGenerator
 {
     /**
      * @throws \Exception
@@ -61,7 +61,7 @@ class Flux extends AbstractImageGenerator
     {
         return sprintf(
             'https://api.replicate.com/v1/models/%s/predictions',
-            config('services.replicate.models')[config('app.image_generator_service')]
+            config('services.replicate.image_generator_model')
         );
     }
 }
