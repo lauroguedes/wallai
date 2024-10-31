@@ -127,5 +127,7 @@ return [
      * Image Generator Service
      * */
     'image_generator_service' => env('IMAGE_GENERATOR_SERVICE', 'replicate'),
+    'text_generator_service' => env('TEXT_GENERATOR_SERVICE', 'replicate'),
     'image_generator_system_prompt' => env('IMAGE_GENERATOR_SYSTEM_PROMPT', 'A high-quality %s iPhone wallpaper of %s, vertical composition (1170x2532), optimized for mobile display with clear areas for UI elements. %s'),
+    'text_generator_system_prompt' => env('TEXT_GENERATOR_SYSTEM_PROMPT', 'You are a creative AI image prompt generator. Generate one prompt in the specified style only. Provide just the prompt, excluding all other information.'),
 ];

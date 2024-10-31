@@ -2,10 +2,13 @@
 
 use App\Enums\ImageType;
 use App\Services\AbstractImageGenerator;
-use Illuminate\Support\Facades\Http;
+use App\Services\AbstractTextGenerator;
 use Livewire\Volt\Component;
+use Mary\Traits\Toast;
 
 new class extends Component {
+    use Toast;
+
     public string $prompt = '';
 
     public string $selectedOption = ImageType::Realistic->value;
@@ -23,7 +26,17 @@ new class extends Component {
 
             $this->dispatch('wallpaper-generated', $wallpaperData);
         } catch (Throwable $e) {
-            dd($e->getMessage());
+            $this->error($e->getMessage());
+        }
+    }
+
+    public function generatePrompt(AbstractTextGenerator $client): void
+    {
+        try {
+            $prompt = $client->generate($this->selectedOption);
+            $this->prompt = trim(implode('', $prompt));
+        } catch (Throwable $e) {
+            $this->error($e->getMessage());
         }
     }
 }; ?>
@@ -43,7 +56,8 @@ new class extends Component {
             rows="3"
             inline/>
         <div class="flex justify-between items-center">
-            <x-button icon="c-arrow-path-rounded-square" class="btn-square"/>
+            <x-button wire:click="generatePrompt" icon="c-arrow-path-rounded-square" class="btn-square"
+                      spinner="generatePrompt"/>
             <x-button class="btn-secondary" type="submit" spinner="generate">Generate</x-button>
         </div>
     </x-form>

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ImageType;
+use App\Exceptions\ServiceGeneratorException;
 
 class ReplicateGenerateImage extends AbstractImageGenerator
 {
@@ -29,7 +30,7 @@ class ReplicateGenerateImage extends AbstractImageGenerator
 
         throw_if(
             empty($response) || !$response['output'],
-            new \Exception('Invalid response')
+            new ServiceGeneratorException('Invalid response')
         );
 
         return $this->getImage($response['id'], $response['output']);

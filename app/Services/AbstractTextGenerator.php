@@ -6,7 +6,7 @@ use App\Exceptions\ServiceGeneratorException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-abstract class AbstractImageGenerator
+abstract class AbstractTextGenerator
 {
     /**
      * @throws \Exception
@@ -39,18 +39,7 @@ abstract class AbstractImageGenerator
         throw new ServiceGeneratorException($error->getMessage());
     }
 
-    protected function getImage(string $id, array|string $url): array
-    {
-        $url = is_array($url) ? $url[0] : $url;
-
-        return [
-            'id' => $id,
-            'url' => $url,
-        ];
-    }
-
-    abstract public function generate(string $prompt, string $style): array;
-    abstract protected function mountPrompt(...$args): string;
+    abstract public function generate(string $prompt): array;
     abstract protected function getEndpoint(): string;
     abstract protected function mountParams(string $prompt): array;
 }
