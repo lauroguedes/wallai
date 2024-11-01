@@ -79,20 +79,29 @@ php artisan serve
 2. Generate an API key
 3. Add the API key to your `.env` file
 
-### Wallpaper Settings
+### Replicate API Settings
 
-Default wallpaper settings can be configured in `config/services.php`:
+Default replicate API settings can be configured in `config/services.php` or using environment variables:
 
 ```php
 return [
     'replicate' => [
-        'key' => env('REPLICATE_API_TOKEN'),
+        'key' => env('REPLICATE_API_KEY'),
         'image_generator_model' => env('REPLICATE_IMAGE_GENERATOR_MODEL', 'black-forest-labs/flux-schnell'),
         'text_generator_model' => env('REPLICATE_TEXT_GENERATOR_MODEL', 'meta/meta-llama-3-8b-instruct'),
         'aspect_ratio' => env('REPLICATE_ASPECT_RATIO', '9:21'),
         'output_format' => env('REPLICATE_OUTPUT_FORMAT', 'webp'),
     ],
 ];
+```
+
+## System Prompts Settings
+
+Default system prompts can be configured or changed using environment variables.
+
+```php
+IMAGE_GENERATOR_SYSTEM_PROMPT=
+TEXT_GENERATOR_SYSTEM_PROMPT=
 ```
 
 ## 🎯 Usage
