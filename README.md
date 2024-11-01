@@ -2,6 +2,8 @@
 
 Generate unique, AI-powered wallpapers perfectly sized for your smartphone using state-of-the-art image generation models through Replicate API.
 
+https://github.com/user-attachments/assets/47a2384d-e978-48b0-bf64-95930f1fb020
+
 ## ✨ Features
 
 - AI-powered wallpaper generation
