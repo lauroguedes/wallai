@@ -1,66 +1,104 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Wallai - AI Smartphone Wallpaper Generator 🎨
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Generate unique, AI-powered wallpapers perfectly sized for your smartphone using state-of-the-art image generation models through Replicate API.
 
-## About Laravel
+## ✨ Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- AI-powered wallpaper generation
+- Real-time preview using
+- Modern, responsive UI components
+- Easy-to-use prompt interface
+- Download generated wallpapers in high resolution
+- Prompt generator for generating prompts
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🔧 Tech Stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Backend Framework:** [Laravel](https://laravel.com)
+- **Frontend:** [Livewire](https://livewire.laravel.com) for real-time interactions
+- **UI Components:** [MaryUI](https://mary-ui.com) / [DaisyUI](https://daisyui.com)
+- **AI Integration:** [Replicate](https://replicate.com)
 
-## Learning Laravel
+## 📋 Prerequisites
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- PHP >= 8.2
+- Laravel 11
+- Node.js & NPM
+- Replicate API key
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## 🚀 Installation
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+1. Clone the repository:
+```bash
+git clone https://github.com/lauroguedes/wallai.git
+cd wallai
+```
 
-## Laravel Sponsors
+2. Install dependencies:
+```bash
+composer install
+```
+```bash
+npm install
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+3. Copy the environment file and set up your variables:
+```bash
+cp .env.example .env
+```
 
-### Premium Partners
+5. Configure your Replicate API key in `.env`:
+```
+REPLICATE_API_TOKEN=your_api_key_here
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+6. Generate application key:
+```bash
+php artisan key:generate
+```
 
-## Contributing
+7. Run migrations:
+```bash
+php artisan migrate
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+8. Build assets:
+```bash
+npm run build
+```
 
-## Code of Conduct
+9. Start the development server:
+```bash
+php artisan serve
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## 🛠️ Configuration
 
-## Security Vulnerabilities
+### Replicate API Setup
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+1. Create an account at [replicate.com](https://replicate.com)
+2. Generate an API key
+3. Add the API key to your `.env` file
 
-## License
+### Wallpaper Settings
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Default wallpaper settings can be configured in `config/services.php`:
+
+```php
+return [
+    'replicate' => [
+        'key' => env('REPLICATE_API_TOKEN'),
+        'image_generator_model' => env('REPLICATE_IMAGE_GENERATOR_MODEL', 'black-forest-labs/flux-schnell'),
+        'text_generator_model' => env('REPLICATE_TEXT_GENERATOR_MODEL', 'meta/meta-llama-3-8b-instruct'),
+        'aspect_ratio' => env('REPLICATE_ASPECT_RATIO', '9:21'),
+        'output_format' => env('REPLICATE_OUTPUT_FORMAT', 'webp'),
+    ],
+];
+```
+
+## 🎯 Usage
+
+1. Visit the application in your browser
+2. Enter a description of the wallpaper you want to generate
+3. Select your smartphone model or enter custom dimensions
+4. Click "Generate" and wait for the AI to create your wallpaper
+5. Download the generated wallpaper directly to your device
