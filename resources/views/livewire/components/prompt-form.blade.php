@@ -56,7 +56,7 @@ new class extends Component {
             rows="3"
             inline/>
         <div class="flex justify-between items-center">
-            <x-button wire:click="generatePrompt" icon="c-arrow-path-rounded-square" class="btn-square"
+            <x-button wire:click="generatePrompt" icon="lucide.dices" class="btn-square"
                       spinner="generatePrompt"/>
             <x-button class="btn-secondary" type="submit" spinner="generate">Generate</x-button>
         </div>

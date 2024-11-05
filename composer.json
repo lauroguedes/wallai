@@ -10,6 +10,7 @@
         "laravel/tinker": "^2.9",
         "livewire/livewire": "^3.5",
         "livewire/volt": "^1.6",
+        "mallardduck/blade-lucide-icons": "^1.23",
         "robsontenorio/mary": "^1.41"
     },
     "require-dev": {
