@@ -25,7 +25,7 @@ new class extends Component {
     <div class="mockup-phone border-primary">
         <div class="camera"></div>
         <div class="display">
-            <div class="artboard artboard-demo w-[320px] h-[700px] bg-gradient-to-tr from-slate-700 to-gray-900">
+            <div class="artboard artboard-demo w-[320px] h-[700px] bg-linear-to-tr from-slate-700 to-gray-900">
                 <div class="relative">
                     @if($wallpaper)
                         <x-button wire:click="downloadImage" class="absolute right-5 bottom-16 btn-accent"
