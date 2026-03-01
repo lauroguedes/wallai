@@ -1,9 +1,8 @@
 <?php
 
 use App\Enums\ImageType;
-use App\Services\AbstractImageGenerator;
-use App\Services\AbstractTextGenerator;
-use Livewire\Volt\Component;
+use App\Services\WallpaperService;
+use Livewire\Component;
 use Mary\Traits\Toast;
 
 new class extends Component {
@@ -19,10 +18,10 @@ new class extends Component {
         ['id' => ImageType::Abstract->value, 'name' => ImageType::Abstract->name],
     ];
 
-    public function generate(AbstractImageGenerator $client): void
+    public function generate(WallpaperService $service): void
     {
         try {
-            $wallpaperData = $client->generate($this->prompt, $this->selectedOption);
+            $wallpaperData = $service->generateImage($this->prompt, $this->selectedOption);
 
             $this->dispatch('wallpaper-generated', $wallpaperData);
         } catch (Throwable $e) {
@@ -30,11 +29,10 @@ new class extends Component {
         }
     }
 
-    public function generatePrompt(AbstractTextGenerator $client): void
+    public function generatePrompt(WallpaperService $service): void
     {
         try {
-            $prompt = $client->generate($this->selectedOption);
-            $this->prompt = trim(implode('', $prompt));
+            $this->prompt = $service->generatePrompt($this->selectedOption);
         } catch (Throwable $e) {
             $this->error($e->getMessage());
         }
@@ -42,7 +40,7 @@ new class extends Component {
 }; ?>
 
 <div class="flex flex-col gap-2">
-    <livewire:components.logo/>
+    <livewire:logo/>
     <x-form class="mt-5" wire:submit="generate">
         <x-radio
             label="Select one"

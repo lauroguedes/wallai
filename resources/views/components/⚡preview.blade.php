@@ -1,7 +1,8 @@
 <?php
 
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\On;
-use Livewire\Volt\Component;
+use Livewire\Component;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new class extends Component {
@@ -16,8 +17,8 @@ new class extends Component {
     public function downloadImage(): StreamedResponse
     {
         return response()->streamDownload(function () {
-            echo file_get_contents($this->wallpaper['url']);
-        }, 'phone_wallpaper.' . config('services.replicate.output_format'));
+            echo Storage::disk('public')->get($this->wallpaper['path']);
+        }, 'phone_wallpaper.'.$this->wallpaper['extension']);
     }
 }; ?>
 
@@ -34,7 +35,7 @@ new class extends Component {
                              src="{{ $wallpaper['url'] }}">
                     @else
                         <div class="opacity-20">
-                            <livewire:components.logo/>
+                            <livewire:logo/>
                         </div>
                     @endif
                 </div>

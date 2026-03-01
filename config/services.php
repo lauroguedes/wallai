@@ -34,12 +34,4 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
-    'replicate' => [
-        'key' => env('REPLICATE_API_KEY'),
-        'image_generator_model' => env('REPLICATE_IMAGE_GENERATOR_MODEL', 'black-forest-labs/flux-schnell'),
-        'text_generator_model' => env('REPLICATE_TEXT_GENERATOR_MODEL', 'meta/meta-llama-3-8b-instruct'),
-        'aspect_ratio' => env('REPLICATE_ASPECT_RATIO', '9:21'),
-        'output_format' => env('REPLICATE_OUTPUT_FORMAT', 'webp'),
-    ],
 ];
