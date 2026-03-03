@@ -1,8 +1,8 @@
 <?php
 
 use App\Ai\Agents\PromptGenerator;
+use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
-use App\Enums\ImageType;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Image;
 use Livewire\Livewire;
@@ -14,8 +14,9 @@ beforeEach(function () {
 it('renders with default state', function () {
     Livewire::test('prompt-form')
         ->assertSet('prompt', '')
-        ->assertSet('selectedOption', ImageType::Realistic->value)
+        ->assertSet('selectedStyle', BackgroundStyle::NaturalLandscape->value)
         ->assertSet('deviceType', DeviceType::Mobile->value)
+        ->assertSet('showDrawer', false)
         ->assertSee('Generate');
 });
 
@@ -25,6 +26,14 @@ it('updates device type when device-type-changed event is received', function ()
         ->assertSet('deviceType', 'desktop');
 });
 
+it('selects a style and closes the drawer', function () {
+    Livewire::test('prompt-form')
+        ->set('showDrawer', true)
+        ->call('selectStyle', BackgroundStyle::PixelArt->value)
+        ->assertSet('selectedStyle', BackgroundStyle::PixelArt->value)
+        ->assertSet('showDrawer', false);
+});
+
 it('dispatches wallpaper-generated event on successful generation', function () {
     Image::fake([
         base64_encode('fake-image-content'),
@@ -32,7 +41,7 @@ it('dispatches wallpaper-generated event on successful generation', function () 
 
     Livewire::test('prompt-form')
         ->set('prompt', 'a beautiful mountain landscape')
-        ->set('selectedOption', 'realistic')
+        ->set('selectedStyle', BackgroundStyle::NaturalLandscape->value)
         ->call('generate')
         ->assertDispatched('wallpaper-generated');
 });
@@ -44,7 +53,7 @@ it('passes device type to service on generate', function () {
 
     Livewire::test('prompt-form')
         ->set('prompt', 'a panoramic cityscape')
-        ->set('selectedOption', 'realistic')
+        ->set('selectedStyle', BackgroundStyle::PhotoRealist->value)
         ->dispatch('device-type-changed', 'desktop')
         ->call('generate')
         ->assertDispatched('wallpaper-generated');
@@ -58,7 +67,7 @@ it('updates prompt when generatePrompt is called', function () {
     ]);
 
     Livewire::test('prompt-form')
-        ->set('selectedOption', 'abstract')
+        ->set('selectedStyle', BackgroundStyle::AbstractFluidArt->value)
         ->call('generatePrompt')
         ->assertSet('prompt', 'A stunning cosmic nebula with vibrant purple and blue hues');
 });

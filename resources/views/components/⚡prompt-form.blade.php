@@ -1,7 +1,7 @@
 <?php
 
+use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
-use App\Enums\ImageType;
 use App\Exceptions\ServiceGeneratorException;
 use App\Services\WallpaperService;
 use Livewire\Attributes\On;
@@ -13,15 +13,17 @@ new class extends Component {
 
     public string $prompt = '';
 
-    public string $selectedOption = ImageType::Realistic->value;
+    public string $selectedStyle = BackgroundStyle::NaturalLandscape->value;
 
     public string $deviceType = DeviceType::Mobile->value;
 
-    public array $options = [
-        ['id' => ImageType::Realistic->value, 'name' => ImageType::Realistic->name],
-        ['id' => ImageType::Artistic->value, 'name' => ImageType::Artistic->name],
-        ['id' => ImageType::Abstract->value, 'name' => ImageType::Abstract->name],
-    ];
+    public bool $showDrawer = false;
+
+    public function selectStyle(string $style): void
+    {
+        $this->selectedStyle = $style;
+        $this->showDrawer = false;
+    }
 
     #[On('device-type-changed')]
     public function onDeviceTypeChanged(string $deviceType): void
@@ -32,8 +34,9 @@ new class extends Component {
     public function generate(WallpaperService $service): void
     {
         try {
+            $style = BackgroundStyle::from($this->selectedStyle);
             $deviceType = DeviceType::from($this->deviceType);
-            $wallpaperData = $service->generateImage($this->prompt, $this->selectedOption, $deviceType);
+            $wallpaperData = $service->generateImage($this->prompt, $style, $deviceType);
 
             $this->dispatch('wallpaper-generated', $wallpaperData);
         } catch (ServiceGeneratorException $e) {
@@ -45,8 +48,9 @@ new class extends Component {
     public function generatePrompt(WallpaperService $service): void
     {
         try {
+            $style = BackgroundStyle::from($this->selectedStyle);
             $deviceType = DeviceType::from($this->deviceType);
-            $this->prompt = $service->generatePrompt($this->selectedOption, $deviceType);
+            $this->prompt = $service->generatePrompt($style, $deviceType);
         } catch (ServiceGeneratorException $e) {
             report($e);
             $this->error($e->getUserMessage());
@@ -57,10 +61,12 @@ new class extends Component {
 <div class="flex flex-col gap-2">
     <livewire:logo/>
     <x-form class="mt-5" wire:submit="generate" x-on:submit="$dispatch('generating')">
-        <x-group
-            label="Style"
-            :options="$options"
-            wire:model="selectedOption" />
+        <div>
+            <label class="label label-text font-semibold mb-1">Style</label>
+            <x-style-selected-card
+                :style="BackgroundStyle::from($selectedStyle)"
+                wire:click="$toggle('showDrawer')" />
+        </div>
 
         <x-textarea
             class="w-72"
@@ -75,4 +81,15 @@ new class extends Component {
             <x-button class="btn-secondary" type="submit" spinner="generate">Generate</x-button>
         </div>
     </x-form>
+
+    <x-drawer wire:model="showDrawer" title="Choose a Style" right withCloseButton closeOnEscape class="w-11/12 lg:w-1/3">
+        <div class="grid grid-cols-2 gap-3">
+            @foreach(BackgroundStyle::cases() as $style)
+                <x-style-picker-card
+                    :style="$style"
+                    :selected="$style->value === $selectedStyle"
+                    wire:click="selectStyle('{{ $style->value }}')" />
+            @endforeach
+        </div>
+    </x-drawer>
 </div>

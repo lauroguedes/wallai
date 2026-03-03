@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Ai\Agents\PromptGenerator;
+use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
-use App\Enums\ImageType;
 use App\Exceptions\ServiceGeneratorException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -12,8 +12,6 @@ use Laravel\Ai\Image;
 
 class WallpaperService
 {
-    private const IMAGE_PROMPT_TEMPLATE = 'Create a stunning %s %s background image: %s. %s orientation. High resolution with rich detail and vibrant colors. Generate ONLY the artwork itself — do NOT include any phone UI elements such as status bars, wifi icons, battery indicators, signal bars, clock, home bar, navigation buttons, or any device overlay. The output must be a clean image with no text or interface elements. %s';
-
     /**
      * Generate a wallpaper image from a prompt, style, and device type.
      *
@@ -21,7 +19,7 @@ class WallpaperService
      *
      * @throws ServiceGeneratorException
      */
-    public function generateImage(string $prompt, string $style, DeviceType $deviceType = DeviceType::Mobile): array
+    public function generateImage(string $prompt, BackgroundStyle $style, DeviceType $deviceType = DeviceType::Mobile): array
     {
         try {
             $engineeredPrompt = $this->buildImagePrompt($prompt, $style, $deviceType);
@@ -49,7 +47,7 @@ class WallpaperService
         } catch (\Throwable $e) {
             throw ServiceGeneratorException::imageGeneration($e, [
                 'prompt' => $prompt,
-                'style' => $style,
+                'style' => $style->value,
                 'device_type' => $deviceType->value,
             ]);
         }
@@ -60,39 +58,38 @@ class WallpaperService
      *
      * @throws ServiceGeneratorException
      */
-    public function generatePrompt(string $style, DeviceType $deviceType = DeviceType::Mobile): string
+    public function generatePrompt(BackgroundStyle $style, DeviceType $deviceType = DeviceType::Mobile): string
     {
         try {
             $deviceContext = $deviceType->promptContext();
 
             $response = (new PromptGenerator)->prompt(
-                "Generate a creative image prompt for a {$style} style {$deviceContext}"
+                "Generate a creative image prompt for a {$style->title()} style {$deviceContext}. "
+                ."The style is described as: {$style->description()}"
             );
 
             return trim($response->text);
         } catch (\Throwable $e) {
             throw ServiceGeneratorException::promptGeneration($e, [
-                'style' => $style,
+                'style' => $style->value,
                 'device_type' => $deviceType->value,
             ]);
         }
     }
 
     /**
-     * Build the engineered prompt combining user input with style and device templates.
+     * Build the engineered prompt combining the style's system prompt, user input, and device context.
      */
-    protected function buildImagePrompt(string $prompt, string $style, DeviceType $deviceType): string
+    protected function buildImagePrompt(string $prompt, BackgroundStyle $style, DeviceType $deviceType): string
     {
-        $imageType = ImageType::from($style);
-
-        return sprintf(
-            self::IMAGE_PROMPT_TEMPLATE,
-            $imageType->name,
-            $deviceType->promptContext(),
-            $prompt,
-            ucfirst($deviceType->orientation()),
-            $imageType->prompt()
-        );
+        return implode(' ', [
+            $style->systemPrompt(),
+            "User request: {$prompt}.",
+            ucfirst($deviceType->orientation()).' orientation for '.$deviceType->promptContext().'.',
+            'High resolution with rich detail and vibrant colors.',
+            'Generate ONLY the artwork itself — do NOT include any phone UI elements such as status bars, wifi icons, battery indicators, signal bars, clock, home bar, navigation buttons, or any device overlay.',
+            'The output must be a clean image with no text or interface elements.',
+        ]);
     }
 
     /**

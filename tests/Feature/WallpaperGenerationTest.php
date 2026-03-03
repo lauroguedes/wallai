@@ -1,6 +1,7 @@
 <?php
 
 use App\Ai\Agents\PromptGenerator;
+use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
 use App\Exceptions\ServiceGeneratorException;
 use App\Services\WallpaperService;
@@ -17,7 +18,7 @@ it('generates an image and stores it to disk', function () {
     ]);
 
     $service = app(WallpaperService::class);
-    $result = $service->generateImage('a beautiful sunset', 'realistic');
+    $result = $service->generateImage('a beautiful sunset', BackgroundStyle::PhotoRealist);
 
     expect($result)
         ->toHaveKeys(['id', 'url', 'path', 'extension'])
@@ -35,7 +36,7 @@ it('generates a landscape image for desktop device type', function () {
     ]);
 
     $service = app(WallpaperService::class);
-    $result = $service->generateImage('a mountain range', 'realistic', DeviceType::Desktop);
+    $result = $service->generateImage('a mountain range', BackgroundStyle::NaturalLandscape, DeviceType::Desktop);
 
     expect($result)
         ->toHaveKeys(['id', 'url', 'path', 'extension']);
@@ -51,13 +52,13 @@ it('generates a creative prompt using the agent', function () {
     ]);
 
     $service = app(WallpaperService::class);
-    $result = $service->generatePrompt('realistic');
+    $result = $service->generatePrompt(BackgroundStyle::NaturalLandscape);
 
     expect($result)
         ->toBeString()
         ->not->toBeEmpty();
 
-    PromptGenerator::assertPrompted(fn ($prompt) => $prompt->contains('realistic'));
+    PromptGenerator::assertPrompted(fn ($prompt) => $prompt->contains('Natural Landscape'));
 });
 
 it('generates a prompt with desktop context', function () {
@@ -66,7 +67,7 @@ it('generates a prompt with desktop context', function () {
     ]);
 
     $service = app(WallpaperService::class);
-    $result = $service->generatePrompt('artistic', DeviceType::Desktop);
+    $result = $service->generatePrompt(BackgroundStyle::StylizedIllustration, DeviceType::Desktop);
 
     expect($result)
         ->toBeString()
@@ -83,7 +84,7 @@ it('throws ServiceGeneratorException with image_generation operation on failure'
     $service = app(WallpaperService::class);
 
     try {
-        $service->generateImage('test', 'realistic');
+        $service->generateImage('test', BackgroundStyle::PhotoRealist);
         test()->fail('Expected ServiceGeneratorException');
     } catch (ServiceGeneratorException $e) {
         expect($e)
@@ -101,7 +102,7 @@ it('throws ServiceGeneratorException with prompt_generation operation on failure
     $service = app(WallpaperService::class);
 
     try {
-        $service->generatePrompt('realistic');
+        $service->generatePrompt(BackgroundStyle::PixelArt);
         test()->fail('Expected ServiceGeneratorException');
     } catch (ServiceGeneratorException $e) {
         expect($e)
@@ -111,21 +112,20 @@ it('throws ServiceGeneratorException with prompt_generation operation on failure
     }
 });
 
-it('builds image prompt combining user prompt with style template', function () {
+it('builds image prompt combining user prompt with style system prompt', function () {
     $service = app(WallpaperService::class);
 
     $reflection = new ReflectionMethod($service, 'buildImagePrompt');
 
-    $result = $reflection->invoke($service, 'a serene mountain landscape', 'realistic', DeviceType::Mobile);
+    $result = $reflection->invoke($service, 'a serene mountain landscape', BackgroundStyle::PhotoRealist, DeviceType::Mobile);
 
     expect($result)
-        ->toContain('Realistic')
         ->toContain('a serene mountain landscape')
-        ->toContain('realistic')
-        ->toContain('Portrait');
+        ->toContain('Portrait')
+        ->toContain('photorealistic');
 });
 
-it('builds image prompt with style-specific keywords', function (string $style, string $expectedKeyword) {
+it('builds image prompt with style-specific keywords', function (BackgroundStyle $style, string $expectedKeyword) {
     $service = app(WallpaperService::class);
 
     $reflection = new ReflectionMethod($service, 'buildImagePrompt');
@@ -134,9 +134,9 @@ it('builds image prompt with style-specific keywords', function (string $style, 
 
     expect($result)->toContain($expectedKeyword);
 })->with([
-    ['realistic', 'realistic'],
-    ['artistic', 'brushwork'],
-    ['abstract', 'geometric'],
+    [BackgroundStyle::PhotoRealist, 'photorealistic'],
+    [BackgroundStyle::PixelArt, 'pixel art'],
+    [BackgroundStyle::MinimalGeometric, 'geometric'],
 ]);
 
 it('builds desktop image prompt with landscape orientation', function () {
@@ -144,7 +144,7 @@ it('builds desktop image prompt with landscape orientation', function () {
 
     $reflection = new ReflectionMethod($service, 'buildImagePrompt');
 
-    $result = $reflection->invoke($service, 'a cityscape', 'artistic', DeviceType::Desktop);
+    $result = $reflection->invoke($service, 'a cityscape', BackgroundStyle::StylizedIllustration, DeviceType::Desktop);
 
     expect($result)
         ->toContain('Landscape')
