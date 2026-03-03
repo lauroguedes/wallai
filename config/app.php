@@ -122,9 +122,4 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
-
-    /*
-     * Wallpaper Generation
-     * */
-    'image_generator_system_prompt' => env('IMAGE_GENERATOR_SYSTEM_PROMPT', 'Create a stunning %s mobile wallpaper: %s. Portrait orientation optimized for smartphone displays. High resolution with rich detail and vibrant colors. Clean composition with visual breathing room for clock and icons at top and bottom. %s'),
 ];
