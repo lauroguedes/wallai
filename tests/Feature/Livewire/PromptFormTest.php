@@ -1,5 +1,6 @@
 <?php
 
+use App\Ai\Agents\ImagePromptAgent;
 use App\Ai\Agents\PromptGenerator;
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
@@ -35,6 +36,7 @@ it('selects a style and closes the drawer', function () {
 });
 
 it('dispatches wallpaper-generated event on successful generation', function () {
+    ImagePromptAgent::fake();
     Image::fake([
         base64_encode('fake-image-content'),
     ]);
@@ -44,9 +46,12 @@ it('dispatches wallpaper-generated event on successful generation', function () 
         ->set('selectedStyle', BackgroundStyle::NaturalLandscape->value)
         ->call('generate')
         ->assertDispatched('wallpaper-generated');
+
+    ImagePromptAgent::assertPrompted(fn ($prompt) => $prompt->contains('mountain landscape'));
 });
 
 it('passes device type to service on generate', function () {
+    ImagePromptAgent::fake();
     Image::fake([
         base64_encode('fake-image-content'),
     ]);
@@ -58,7 +63,7 @@ it('passes device type to service on generate', function () {
         ->call('generate')
         ->assertDispatched('wallpaper-generated');
 
-    Image::assertGenerated(fn ($prompt) => $prompt->contains('desktop'));
+    ImagePromptAgent::assertPrompted(fn ($prompt) => $prompt->contains('panoramic cityscape'));
 });
 
 it('updates prompt when generatePrompt is called', function () {
@@ -85,7 +90,7 @@ it('passes device type to service on generatePrompt', function () {
 });
 
 it('shows friendly error toast when image generation fails', function () {
-    Image::fake([
+    ImagePromptAgent::fake([
         fn () => throw new \RuntimeException('Generation failed'),
     ]);
 

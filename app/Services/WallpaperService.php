@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Ai\Agents\ImagePromptAgent;
 use App\Ai\Agents\PromptGenerator;
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
@@ -22,7 +23,8 @@ class WallpaperService
     public function generateImage(string $prompt, BackgroundStyle $style, DeviceType $deviceType = DeviceType::Mobile): array
     {
         try {
-            $engineeredPrompt = $this->buildImagePrompt($prompt, $style, $deviceType);
+            $structuredResponse = (new ImagePromptAgent($style, $deviceType))->prompt($prompt);
+            $engineeredPrompt = $this->flattenStructuredPrompt($structuredResponse->toArray());
 
             $response = Image::of($engineeredPrompt)
                 ->when($deviceType === DeviceType::Mobile, fn ($image) => $image->portrait())
@@ -78,18 +80,78 @@ class WallpaperService
     }
 
     /**
-     * Build the engineered prompt combining the style's system prompt, user input, and device context.
+     * Flatten a structured image prompt response into a natural language string.
+     *
+     * @param  array<string, mixed>  $structured
      */
-    protected function buildImagePrompt(string $prompt, BackgroundStyle $style, DeviceType $deviceType): string
+    protected function flattenStructuredPrompt(array $structured): string
     {
-        return implode(' ', [
-            $style->systemPrompt(),
-            "User request: {$prompt}.",
-            ucfirst($deviceType->orientation()).' orientation for '.$deviceType->promptContext().'.',
-            'High resolution with rich detail and vibrant colors.',
-            'Generate ONLY the artwork itself — do NOT include any phone UI elements such as status bars, wifi icons, battery indicators, signal bars, clock, home bar, navigation buttons, or any device overlay.',
-            'The output must be a clean image with no text or interface elements.',
-        ]);
+        $parts = [];
+
+        if (isset($structured['subject'])) {
+            $subject = $structured['subject'];
+            $parts[] = ucfirst($subject['entity_type'] ?? 'scene').':';
+
+            if (! empty($subject['description'])) {
+                $parts[] = implode(', ', $subject['description']).'.';
+            }
+
+            if (! empty($subject['arrangement'])) {
+                $parts[] = $subject['arrangement'].'.';
+            }
+
+            if (! empty($subject['materials'])) {
+                $materials = array_filter($subject['materials'], fn ($v) => $v && strtolower($v) !== 'none');
+                if (! empty($materials)) {
+                    $parts[] = 'Materials: '.implode(', ', $materials).'.';
+                }
+            }
+        }
+
+        if (isset($structured['scene'])) {
+            $scene = $structured['scene'];
+
+            if (! empty($scene['environment'])) {
+                $parts[] = 'Environment: '.$scene['environment'].'.';
+            }
+
+            if (! empty($scene['lighting'])) {
+                $lighting = $scene['lighting'];
+                $parts[] = 'Lighting: '.($lighting['source'] ?? '')
+                    .' from '.($lighting['direction'] ?? '')
+                    .', '.($lighting['atmosphere'] ?? '').' atmosphere.';
+            }
+
+            if (! empty($scene['objects'])) {
+                $parts[] = 'Scene elements: '.implode(', ', $scene['objects']).'.';
+            }
+        }
+
+        if (isset($structured['technical_camera'])) {
+            $camera = $structured['technical_camera'];
+            $parts[] = 'Shot with '.($camera['lens'] ?? '').' lens, '
+                .($camera['aperture'] ?? '').', ISO '.($camera['iso'] ?? 100).', '
+                .($camera['camera_angle'] ?? 'eye-level').' angle.';
+        }
+
+        if (isset($structured['global_settings'])) {
+            $settings = $structured['global_settings'];
+            $parts[] = ucfirst($settings['quality_mode'] ?? 'high').' quality, '
+                .($settings['resolution'] ?? '').' resolution.';
+        }
+
+        if (isset($structured['text_rendering']) && ! empty($structured['text_rendering']['content'])) {
+            $text = $structured['text_rendering'];
+            $parts[] = 'Text: "'.$text['content'].'" in '
+                .($text['font_style'] ?? 'sans-serif')
+                .' style, placed at '.($text['placement'] ?? 'center').'.';
+        }
+
+        if (! empty($structured['negative_prompt'])) {
+            $parts[] = 'Avoid: '.implode(', ', $structured['negative_prompt']).'.';
+        }
+
+        return implode(' ', $parts);
     }
 
     /**
