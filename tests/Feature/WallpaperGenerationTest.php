@@ -5,7 +5,10 @@ use App\Ai\Agents\PromptGenerator;
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
 use App\Exceptions\ServiceGeneratorException;
+use App\Jobs\GenerateWallpaper;
 use App\Services\WallpaperService;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Image;
 
@@ -234,4 +237,97 @@ it('includes text rendering in flattened prompt when content is provided', funct
         ->toContain('Text: "HELLO WORLD"')
         ->toContain('bold geometric sans-serif')
         ->toContain('center_bottom');
+});
+
+it('stores image under session directory when sessionId is provided', function () {
+    ImagePromptAgent::fake();
+    Image::fake([
+        base64_encode('fake-image-content'),
+    ]);
+
+    $service = app(WallpaperService::class);
+    $result = $service->generateImage('a sunset', BackgroundStyle::PhotoRealist, DeviceType::Mobile, 'test-session');
+
+    expect($result['path'])->toStartWith('wallpapers/test-session/');
+    Storage::disk('public')->assertExists($result['path']);
+});
+
+it('dispatches a GenerateWallpaper job', function () {
+    Queue::fake();
+
+    $service = app(WallpaperService::class);
+    $jobId = $service->dispatchGeneration('session-123', 'a sunset', BackgroundStyle::PhotoRealist, DeviceType::Mobile);
+
+    expect($jobId)->toBeString()->not->toBeEmpty();
+    Queue::assertPushed(GenerateWallpaper::class, function ($job) {
+        return $job->sessionId === 'session-123'
+            && $job->prompt === 'a sunset'
+            && $job->style === BackgroundStyle::PhotoRealist
+            && $job->deviceType === DeviceType::Mobile;
+    });
+});
+
+it('increments pending job count on dispatch', function () {
+    Queue::fake();
+
+    $service = app(WallpaperService::class);
+    $service->dispatchGeneration('session-123', 'test', BackgroundStyle::PhotoRealist, DeviceType::Mobile);
+
+    expect($service->getPendingJobCount('session-123'))->toBe(1);
+
+    $service->dispatchGeneration('session-123', 'test2', BackgroundStyle::PixelArt, DeviceType::Mobile);
+
+    expect($service->getPendingJobCount('session-123'))->toBe(2);
+});
+
+it('returns session wallpapers from cache', function () {
+    $wallpapers = [
+        ['id' => 'a.png', 'url' => '/a.png', 'path' => 'wallpapers/a.png', 'extension' => 'png'],
+        ['id' => 'b.png', 'url' => '/b.png', 'path' => 'wallpapers/b.png', 'extension' => 'png'],
+    ];
+    Cache::put('wallpapers:session-123', $wallpapers, now()->addDay());
+
+    $service = app(WallpaperService::class);
+
+    expect($service->getSessionWallpapers('session-123'))->toHaveCount(2);
+});
+
+it('returns empty array when no session wallpapers exist', function () {
+    $service = app(WallpaperService::class);
+
+    expect($service->getSessionWallpapers('nonexistent'))->toBe([]);
+});
+
+it('deletes wallpaper from storage and session registry', function () {
+    Storage::disk('public')->put('wallpapers/session-123/test.png', 'content');
+    Cache::put('wallpapers:session-123', [
+        ['id' => 'test.png', 'url' => '/test.png', 'path' => 'wallpapers/session-123/test.png', 'extension' => 'png'],
+        ['id' => 'other.png', 'url' => '/other.png', 'path' => 'wallpapers/session-123/other.png', 'extension' => 'png'],
+    ], now()->addDay());
+
+    $service = app(WallpaperService::class);
+    $service->deleteWallpaper('session-123', 'test.png');
+
+    Storage::disk('public')->assertMissing('wallpapers/session-123/test.png');
+    expect($service->getSessionWallpapers('session-123'))
+        ->toHaveCount(1)
+        ->and($service->getSessionWallpapers('session-123')[0]['id'])->toBe('other.png');
+});
+
+it('returns job result from cache', function () {
+    Cache::put('wallpaper_job:job-123', [
+        'status' => 'completed',
+        'wallpaper' => ['id' => 'test.png'],
+    ], now()->addDay());
+
+    $service = app(WallpaperService::class);
+
+    expect($service->getJobResult('job-123'))
+        ->toBe(['status' => 'completed', 'wallpaper' => ['id' => 'test.png']]);
+});
+
+it('returns null for nonexistent job result', function () {
+    $service = app(WallpaperService::class);
+
+    expect($service->getJobResult('nonexistent'))->toBeNull();
 });

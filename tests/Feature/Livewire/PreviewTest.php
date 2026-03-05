@@ -1,11 +1,17 @@
 <?php
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
+beforeEach(function () {
+    Storage::fake('public');
+});
+
 it('renders with empty state showing logo', function () {
     Livewire::test('preview')
-        ->assertSet('wallpapers', ['mobile' => null, 'desktop' => null])
+        ->assertSet('wallpapers', [])
+        ->assertSet('activeWallpaper', null)
         ->assertSeeLivewire('logo');
 });
 
@@ -28,139 +34,146 @@ it('dispatches device-type-changed event on toggle', function () {
         ->assertDispatched('device-type-changed', 'desktop');
 });
 
-it('stores wallpaper under current device type', function () {
-    $wallpaperData = [
-        'id' => 'test-id.png',
-        'url' => '/storage/wallpapers/test-id.png',
-        'path' => 'wallpapers/test-id.png',
-        'extension' => 'png',
+it('loads wallpapers from session cache on mount', function () {
+    $wallpapers = [
+        ['id' => 'a.png', 'url' => '/storage/wallpapers/a.png', 'path' => 'wallpapers/a.png', 'extension' => 'png'],
+        ['id' => 'b.png', 'url' => '/storage/wallpapers/b.png', 'path' => 'wallpapers/b.png', 'extension' => 'png'],
     ];
+    Cache::put('wallpapers:'.session()->getId(), $wallpapers, now()->addDay());
 
     Livewire::test('preview')
-        ->dispatch('wallpaper-generated', $wallpaperData)
-        ->assertSet('wallpapers.mobile', $wallpaperData)
-        ->assertSet('wallpapers.desktop', null);
+        ->assertSet('wallpapers', $wallpapers)
+        ->assertSet('activeWallpaper', $wallpapers[1]);
 });
 
-it('isolates wallpapers per device type', function () {
-    $mobileWallpaper = [
-        'id' => 'mobile.png',
-        'url' => '/storage/wallpapers/mobile.png',
-        'path' => 'wallpapers/mobile.png',
-        'extension' => 'png',
-    ];
+it('adds job to pending list on wallpaper-job-dispatched event', function () {
+    Livewire::test('preview')
+        ->dispatch('wallpaper-job-dispatched', jobId: 'job-123')
+        ->assertSet('pendingJobs', ['job-123'])
+        ->assertSet('loadingPhrase', fn ($v) => ! empty($v));
+});
 
-    $desktopWallpaper = [
-        'id' => 'desktop.png',
-        'url' => '/storage/wallpapers/desktop.png',
-        'path' => 'wallpapers/desktop.png',
-        'extension' => 'png',
-    ];
+it('transitions completed job to wallpapers on checkPendingJobs', function () {
+    $wallpaper = ['id' => 'new.png', 'url' => '/storage/wallpapers/new.png', 'path' => 'wallpapers/new.png', 'extension' => 'png'];
+
+    Cache::put('wallpaper_job:job-123', ['status' => 'completed', 'wallpaper' => $wallpaper], now()->addDay());
+    Cache::put('wallpapers:'.session()->getId(), [$wallpaper], now()->addDay());
 
     Livewire::test('preview')
-        ->dispatch('wallpaper-generated', $mobileWallpaper)
-        ->assertSet('wallpapers.mobile', $mobileWallpaper)
-        ->call('setDeviceType', 'desktop')
-        ->assertSet('wallpapers.desktop', null)
-        ->dispatch('wallpaper-generated', $desktopWallpaper)
-        ->assertSet('wallpapers.desktop', $desktopWallpaper)
-        ->call('setDeviceType', 'mobile')
-        ->assertSet('wallpapers.mobile', $mobileWallpaper);
+        ->dispatch('wallpaper-job-dispatched', jobId: 'job-123')
+        ->call('checkPendingJobs')
+        ->assertSet('pendingJobs', [])
+        ->assertSet('activeWallpaper', $wallpaper);
 });
 
-it('displays the wallpaper image after event', function () {
-    $wallpaperData = [
-        'id' => 'test-id.png',
-        'url' => '/storage/wallpapers/test-id.png',
-        'path' => 'wallpapers/test-id.png',
-        'extension' => 'png',
-    ];
+it('handles failed job with error on checkPendingJobs', function () {
+    Cache::put('wallpaper_job:job-456', [
+        'status' => 'failed',
+        'message' => 'Generation failed.',
+    ], now()->addDay());
 
     Livewire::test('preview')
-        ->dispatch('wallpaper-generated', $wallpaperData)
-        ->assertSeeHtml('src="/storage/wallpapers/test-id.png"');
+        ->dispatch('wallpaper-job-dispatched', jobId: 'job-456')
+        ->call('checkPendingJobs')
+        ->assertSet('pendingJobs', []);
 });
 
-it('shows download button after image generation', function () {
-    $wallpaperData = [
-        'id' => 'test-id.png',
-        'url' => '/storage/wallpapers/test-id.png',
-        'path' => 'wallpapers/test-id.png',
-        'extension' => 'png',
+it('keeps pending jobs that have no result yet', function () {
+    Livewire::test('preview')
+        ->dispatch('wallpaper-job-dispatched', jobId: 'job-pending')
+        ->call('checkPendingJobs')
+        ->assertSet('pendingJobs', ['job-pending']);
+});
+
+it('selects wallpaper by index', function () {
+    $wallpapers = [
+        ['id' => 'a.png', 'url' => '/storage/a.png', 'path' => 'wallpapers/a.png', 'extension' => 'png'],
+        ['id' => 'b.png', 'url' => '/storage/b.png', 'path' => 'wallpapers/b.png', 'extension' => 'png'],
     ];
+    Cache::put('wallpapers:'.session()->getId(), $wallpapers, now()->addDay());
 
     Livewire::test('preview')
-        ->assertDontSee('downloadImage')
-        ->dispatch('wallpaper-generated', $wallpaperData)
-        ->assertSeeHtml('wire:click="downloadImage"');
+        ->call('selectWallpaper', 0)
+        ->assertSet('activeWallpaper', $wallpapers[0]);
 });
 
-it('shows friendly error toast when download fails', function () {
-    Storage::fake('public');
+it('deletes wallpaper from list and storage', function () {
+    Storage::disk('public')->put('wallpapers/session/test.png', 'content');
 
-    $wallpaperData = [
-        'id' => 'nonexistent.png',
-        'url' => '/storage/wallpapers/nonexistent.png',
-        'path' => 'wallpapers/nonexistent.png',
-        'extension' => 'png',
+    $wallpapers = [
+        ['id' => 'test.png', 'url' => '/storage/test.png', 'path' => 'wallpapers/session/test.png', 'extension' => 'png'],
+        ['id' => 'other.png', 'url' => '/storage/other.png', 'path' => 'wallpapers/session/other.png', 'extension' => 'png'],
     ];
+    Cache::put('wallpapers:'.session()->getId(), $wallpapers, now()->addDay());
 
     Livewire::test('preview')
-        ->dispatch('wallpaper-generated', $wallpaperData)
-        ->call('downloadImage')
-        ->assertNotDispatched('download');
+        ->call('deleteWallpaper', 'test.png')
+        ->assertSet('wallpapers', fn ($v) => count($v) === 1);
+
+    Storage::disk('public')->assertMissing('wallpapers/session/test.png');
 });
 
-it('streams download and deletes file from storage', function () {
-    Storage::fake('public');
+it('clears active wallpaper when deleted wallpaper was active', function () {
+    Storage::disk('public')->put('wallpapers/session/active.png', 'content');
+
+    $wallpapers = [
+        ['id' => 'active.png', 'url' => '/storage/active.png', 'path' => 'wallpapers/session/active.png', 'extension' => 'png'],
+    ];
+    Cache::put('wallpapers:'.session()->getId(), $wallpapers, now()->addDay());
+
+    Livewire::test('preview')
+        ->assertSet('activeWallpaper', $wallpapers[0])
+        ->call('deleteWallpaper', 'active.png')
+        ->assertSet('activeWallpaper', null);
+});
+
+it('streams download without deleting file', function () {
     Storage::disk('public')->put('wallpapers/test-id.png', 'fake-image-content');
 
-    $wallpaperData = [
-        'id' => 'test-id.png',
-        'url' => '/storage/wallpapers/test-id.png',
-        'path' => 'wallpapers/test-id.png',
-        'extension' => 'png',
+    $wallpapers = [
+        ['id' => 'test-id.png', 'url' => '/storage/wallpapers/test-id.png', 'path' => 'wallpapers/test-id.png', 'extension' => 'png'],
     ];
+    Cache::put('wallpapers:'.session()->getId(), $wallpapers, now()->addDay());
 
     Livewire::test('preview')
-        ->dispatch('wallpaper-generated', $wallpaperData)
         ->call('downloadImage')
         ->assertFileDownloaded('phone_wallpaper.png');
 
-    Storage::disk('public')->assertMissing('wallpapers/test-id.png');
-});
-
-it('clears wallpaper state after download', function () {
-    Storage::fake('public');
-    Storage::disk('public')->put('wallpapers/test-id.png', 'fake-image-content');
-
-    $wallpaperData = [
-        'id' => 'test-id.png',
-        'url' => '/storage/wallpapers/test-id.png',
-        'path' => 'wallpapers/test-id.png',
-        'extension' => 'png',
-    ];
-
-    Livewire::test('preview')
-        ->dispatch('wallpaper-generated', $wallpaperData)
-        ->call('downloadImage')
-        ->assertSet('wallpapers.mobile', null);
+    Storage::disk('public')->assertExists('wallpapers/test-id.png');
 });
 
 it('streams download with desktop filename when device type is desktop', function () {
-    Storage::fake('public');
     Storage::disk('public')->put('wallpapers/test-id.png', 'fake-image-content');
 
-    $wallpaperData = [
-        'id' => 'test-id.png',
-        'url' => '/storage/wallpapers/test-id.png',
-        'path' => 'wallpapers/test-id.png',
-        'extension' => 'png',
+    $wallpapers = [
+        ['id' => 'test-id.png', 'url' => '/storage/wallpapers/test-id.png', 'path' => 'wallpapers/test-id.png', 'extension' => 'png'],
     ];
+    Cache::put('wallpapers:'.session()->getId(), $wallpapers, now()->addDay());
 
     Livewire::test('preview')
         ->call('setDeviceType', 'desktop')
-        ->dispatch('wallpaper-generated', $wallpaperData)
         ->call('downloadImage')
         ->assertFileDownloaded('desktop_wallpaper.png');
+});
+
+it('shows download and delete buttons when active wallpaper exists', function () {
+    $wallpapers = [
+        ['id' => 'test.png', 'url' => '/storage/test.png', 'path' => 'wallpapers/test.png', 'extension' => 'png'],
+    ];
+    Cache::put('wallpapers:'.session()->getId(), $wallpapers, now()->addDay());
+
+    Livewire::test('preview')
+        ->assertSeeHtml('wire:click="downloadImage"')
+        ->assertSeeHtml('wire:click="deleteWallpaper');
+});
+
+it('shows loading phrase when pending jobs exist', function () {
+    Livewire::test('preview')
+        ->dispatch('wallpaper-job-dispatched', jobId: 'job-123')
+        ->assertSeeHtml('wire:poll.5s="checkPendingJobs"');
+});
+
+it('does not show polling when no pending jobs', function () {
+    Livewire::test('preview')
+        ->assertDontSeeHtml('wire:poll.5s="checkPendingJobs"');
 });

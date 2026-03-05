@@ -1,11 +1,13 @@
 <?php
 
-use App\Ai\Agents\ImagePromptAgent;
 use App\Ai\Agents\PromptGenerator;
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
+use App\Jobs\GenerateWallpaper;
+use App\Services\WallpaperService;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use Laravel\Ai\Image;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -35,35 +37,48 @@ it('selects a style and closes the drawer', function () {
         ->assertSet('showDrawer', false);
 });
 
-it('dispatches wallpaper-generated event on successful generation', function () {
-    ImagePromptAgent::fake();
-    Image::fake([
-        base64_encode('fake-image-content'),
-    ]);
+it('dispatches a job and emits wallpaper-job-dispatched event on generate', function () {
+    Queue::fake();
 
     Livewire::test('prompt-form')
         ->set('prompt', 'a beautiful mountain landscape')
         ->set('selectedStyle', BackgroundStyle::NaturalLandscape->value)
         ->call('generate')
-        ->assertDispatched('wallpaper-generated');
+        ->assertDispatched('wallpaper-job-dispatched');
 
-    ImagePromptAgent::assertPrompted(fn ($prompt) => $prompt->contains('mountain landscape'));
+    Queue::assertPushed(GenerateWallpaper::class, function ($job) {
+        return $job->prompt === 'a beautiful mountain landscape'
+            && $job->style === BackgroundStyle::NaturalLandscape
+            && $job->deviceType === DeviceType::Mobile;
+    });
 });
 
-it('passes device type to service on generate', function () {
-    ImagePromptAgent::fake();
-    Image::fake([
-        base64_encode('fake-image-content'),
-    ]);
+it('passes device type to dispatched job', function () {
+    Queue::fake();
 
     Livewire::test('prompt-form')
         ->set('prompt', 'a panoramic cityscape')
         ->set('selectedStyle', BackgroundStyle::PhotoRealist->value)
         ->dispatch('device-type-changed', 'desktop')
         ->call('generate')
-        ->assertDispatched('wallpaper-generated');
+        ->assertDispatched('wallpaper-job-dispatched');
 
-    ImagePromptAgent::assertPrompted(fn ($prompt) => $prompt->contains('panoramic cityscape'));
+    Queue::assertPushed(GenerateWallpaper::class, function ($job) {
+        return $job->prompt === 'a panoramic cityscape'
+            && $job->deviceType === DeviceType::Desktop;
+    });
+});
+
+it('blocks generation when max pending jobs reached', function () {
+    Queue::fake();
+    Cache::put('pending_jobs:'.session()->getId(), WallpaperService::MAX_PENDING_JOBS);
+
+    Livewire::test('prompt-form')
+        ->set('prompt', 'test prompt')
+        ->call('generate')
+        ->assertNotDispatched('wallpaper-job-dispatched');
+
+    Queue::assertNothingPushed();
 });
 
 it('updates prompt when generatePrompt is called', function () {
@@ -87,17 +102,6 @@ it('passes device type to service on generatePrompt', function () {
         ->call('generatePrompt');
 
     PromptGenerator::assertPrompted(fn ($prompt) => $prompt->contains('desktop'));
-});
-
-it('shows friendly error toast when image generation fails', function () {
-    ImagePromptAgent::fake([
-        fn () => throw new \RuntimeException('Generation failed'),
-    ]);
-
-    Livewire::test('prompt-form')
-        ->set('prompt', 'test prompt')
-        ->call('generate')
-        ->assertNotDispatched('wallpaper-generated');
 });
 
 it('shows friendly error toast when prompt generation fails', function () {

@@ -7,6 +7,8 @@ use App\Ai\Agents\PromptGenerator;
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
 use App\Exceptions\ServiceGeneratorException;
+use App\Jobs\GenerateWallpaper;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Ai\Image;
@@ -14,13 +16,83 @@ use Laravel\Ai\Image;
 class WallpaperService
 {
     /**
+     * Maximum number of concurrent pending jobs per session.
+     */
+    public const int MAX_PENDING_JOBS = 3;
+
+    /**
+     * Dispatch a wallpaper generation job to the queue.
+     */
+    public function dispatchGeneration(string $sessionId, string $prompt, BackgroundStyle $style, DeviceType $deviceType): string
+    {
+        $jobId = (string) Str::ulid();
+
+        Cache::increment("pending_jobs:{$sessionId}");
+
+        GenerateWallpaper::dispatch($sessionId, $jobId, $prompt, $style, $deviceType);
+
+        return $jobId;
+    }
+
+    /**
+     * Get the number of pending jobs for a session.
+     */
+    public function getPendingJobCount(string $sessionId): int
+    {
+        return (int) Cache::get("pending_jobs:{$sessionId}", 0);
+    }
+
+    /**
+     * Get the result of a specific job.
+     *
+     * @return array{status: string, wallpaper?: array, message?: string}|null
+     */
+    public function getJobResult(string $jobId): ?array
+    {
+        return Cache::get("wallpaper_job:{$jobId}");
+    }
+
+    /**
+     * Get all wallpapers for a session.
+     *
+     * @return array<int, array{id: string, url: string, path: string, extension: string}>
+     */
+    public function getSessionWallpapers(string $sessionId): array
+    {
+        return Cache::get("wallpapers:{$sessionId}", []);
+    }
+
+    /**
+     * Delete a wallpaper from storage and the session registry.
+     */
+    public function deleteWallpaper(string $sessionId, string $wallpaperId): void
+    {
+        $wallpapers = $this->getSessionWallpapers($sessionId);
+
+        $wallpapers = array_values(array_filter(
+            $wallpapers,
+            function (array $wallpaper) use ($wallpaperId) {
+                if ($wallpaper['id'] === $wallpaperId) {
+                    Storage::disk('public')->delete($wallpaper['path']);
+
+                    return false;
+                }
+
+                return true;
+            }
+        ));
+
+        Cache::put("wallpapers:{$sessionId}", $wallpapers, now()->addDay());
+    }
+
+    /**
      * Generate a wallpaper image from a prompt, style, and device type.
      *
      * @return array{id: string, url: string, path: string, extension: string}
      *
      * @throws ServiceGeneratorException
      */
-    public function generateImage(string $prompt, BackgroundStyle $style, DeviceType $deviceType = DeviceType::Mobile): array
+    public function generateImage(string $prompt, BackgroundStyle $style, DeviceType $deviceType = DeviceType::Mobile, ?string $sessionId = null): array
     {
         try {
             $structuredResponse = (new ImagePromptAgent($style, $deviceType))->prompt($prompt);
@@ -36,7 +108,9 @@ class WallpaperService
             $image = $response->firstImage();
             $extension = $this->getExtension($image->mime);
             $filename = Str::ulid().'.'.$extension;
-            $path = 'wallpapers/'.$filename;
+
+            $directory = $sessionId ? "wallpapers/{$sessionId}" : 'wallpapers';
+            $path = $directory.'/'.$filename;
 
             Storage::disk('public')->put($path, $image->content());
 

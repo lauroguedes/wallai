@@ -33,16 +33,21 @@ new class extends Component {
 
     public function generate(WallpaperService $service): void
     {
-        try {
-            $style = BackgroundStyle::from($this->selectedStyle);
-            $deviceType = DeviceType::from($this->deviceType);
-            $wallpaperData = $service->generateImage($this->prompt, $style, $deviceType);
+        $sessionId = session()->getId();
 
-            $this->dispatch('wallpaper-generated', $wallpaperData);
-        } catch (ServiceGeneratorException $e) {
-            report($e);
-            $this->error($e->getUserMessage());
+        if ($service->getPendingJobCount($sessionId) >= WallpaperService::MAX_PENDING_JOBS) {
+            $this->error('You have too many pending generations. Please wait.');
+
+            return;
         }
+
+        $style = BackgroundStyle::from($this->selectedStyle);
+        $deviceType = DeviceType::from($this->deviceType);
+
+        $jobId = $service->dispatchGeneration($sessionId, $this->prompt, $style, $deviceType);
+
+        $this->dispatch('wallpaper-job-dispatched', jobId: $jobId);
+        $this->success('Your wallpaper is being generated!');
     }
 
     public function generatePrompt(WallpaperService $service): void
@@ -60,7 +65,7 @@ new class extends Component {
 
 <div class="flex flex-col gap-2">
     <livewire:logo/>
-    <x-form class="mt-5" wire:submit="generate" x-on:submit="$dispatch('generating')">
+    <x-form class="mt-5" wire:submit="generate">
         <div>
             <label class="label label-text font-semibold mb-1">Style</label>
             <x-style-selected-card
