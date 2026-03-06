@@ -48,9 +48,10 @@ class GenerateWallpaper implements ShouldQueue
             'wallpaper' => $result,
         ], now()->addDay());
 
-        $existing = Cache::get("wallpapers:{$this->sessionId}", []);
+        $cacheKey = "wallpapers:{$this->sessionId}:{$this->deviceType->value}";
+        $existing = Cache::get($cacheKey, []);
         $existing[] = $result;
-        Cache::put("wallpapers:{$this->sessionId}", $existing, now()->addDay());
+        Cache::put($cacheKey, $existing, now()->addDay());
 
         Cache::decrement("pending_jobs:{$this->sessionId}");
     }

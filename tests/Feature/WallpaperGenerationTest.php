@@ -285,33 +285,33 @@ it('returns session wallpapers from cache', function () {
         ['id' => 'a.png', 'url' => '/a.png', 'path' => 'wallpapers/a.png', 'extension' => 'png'],
         ['id' => 'b.png', 'url' => '/b.png', 'path' => 'wallpapers/b.png', 'extension' => 'png'],
     ];
-    Cache::put('wallpapers:session-123', $wallpapers, now()->addDay());
+    Cache::put('wallpapers:session-123:mobile', $wallpapers, now()->addDay());
 
     $service = app(WallpaperService::class);
 
-    expect($service->getSessionWallpapers('session-123'))->toHaveCount(2);
+    expect($service->getSessionWallpapers('session-123', 'mobile'))->toHaveCount(2);
 });
 
 it('returns empty array when no session wallpapers exist', function () {
     $service = app(WallpaperService::class);
 
-    expect($service->getSessionWallpapers('nonexistent'))->toBe([]);
+    expect($service->getSessionWallpapers('nonexistent', 'mobile'))->toBe([]);
 });
 
 it('deletes wallpaper from storage and session registry', function () {
     Storage::disk('public')->put('wallpapers/session-123/test.png', 'content');
-    Cache::put('wallpapers:session-123', [
+    Cache::put('wallpapers:session-123:mobile', [
         ['id' => 'test.png', 'url' => '/test.png', 'path' => 'wallpapers/session-123/test.png', 'extension' => 'png'],
         ['id' => 'other.png', 'url' => '/other.png', 'path' => 'wallpapers/session-123/other.png', 'extension' => 'png'],
     ], now()->addDay());
 
     $service = app(WallpaperService::class);
-    $service->deleteWallpaper('session-123', 'test.png');
+    $service->deleteWallpaper('session-123', 'test.png', 'mobile');
 
     Storage::disk('public')->assertMissing('wallpapers/session-123/test.png');
-    expect($service->getSessionWallpapers('session-123'))
+    expect($service->getSessionWallpapers('session-123', 'mobile'))
         ->toHaveCount(1)
-        ->and($service->getSessionWallpapers('session-123')[0]['id'])->toBe('other.png');
+        ->and($service->getSessionWallpapers('session-123', 'mobile')[0]['id'])->toBe('other.png');
 });
 
 it('returns job result from cache', function () {

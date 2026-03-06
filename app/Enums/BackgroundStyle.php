@@ -2,8 +2,6 @@
 
 namespace App\Enums;
 
-use Illuminate\Support\Str;
-
 enum BackgroundStyle: string
 {
     case MinimalGeometric = 'minimalGeometric';
@@ -80,13 +78,32 @@ enum BackgroundStyle: string
     }
 
     /**
-     * Representative preview image URL.
+     * Representative preview image URL from local storage.
      */
     public function image(): string
     {
-        $slug = Str::kebab($this->name);
+        $filename = match ($this) {
+            self::MinimalGeometric => 'minimal_geometric.png',
+            self::BotanicalWatercolor => 'botanical_watercolor.png',
+            self::AbstractFluidArt => 'abstract_fluid.png',
+            self::VintageRetro => 'vintage_retro.png',
+            self::CyberpunkCityscape => 'cyberpunk_cityscape.png',
+            self::StylizedIllustration => 'stylized_illustration.png',
+            self::GraffitiStreetArt => 'graffiti_street_art.png',
+            self::NaturalLandscape => 'natural_landscape.png',
+            self::PixelArt => 'pixel_art.png',
+            self::PhotoRealist => 'photo_realist.png',
+            self::MangaAnime => 'manga_anime.png',
+            self::Sensual => 'sensual.png',
+            self::CloseUpFace => 'clouse_up_face.png',
+            self::Monuments => 'monuments.png',
+            self::Weather => 'weather.png',
+            self::Surrealism => 'surrealism.png',
+            self::Cyberpunk => 'cyberpunk.png',
+            self::Steampunk => 'steampunk.png',
+        };
 
-        return "https://picsum.photos/seed/{$slug}/400/400";
+        return '/storage/styles/'.$filename;
     }
 
     /**

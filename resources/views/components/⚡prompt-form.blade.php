@@ -4,7 +4,6 @@ use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
 use App\Exceptions\ServiceGeneratorException;
 use App\Services\WallpaperService;
-use Livewire\Attributes\On;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
@@ -25,12 +24,6 @@ new class extends Component {
         $this->showDrawer = false;
     }
 
-    #[On('device-type-changed')]
-    public function onDeviceTypeChanged(string $deviceType): void
-    {
-        $this->deviceType = $deviceType;
-    }
-
     public function generate(WallpaperService $service): void
     {
         $sessionId = session()->getId();
@@ -46,7 +39,7 @@ new class extends Component {
 
         $jobId = $service->dispatchGeneration($sessionId, $this->prompt, $style, $deviceType);
 
-        $this->dispatch('wallpaper-job-dispatched', jobId: $jobId);
+        $this->dispatch('wallpaper-job-dispatched', jobId: $jobId, deviceType: $this->deviceType);
         $this->success('Your wallpaper is being generated!');
     }
 
@@ -63,7 +56,8 @@ new class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-2">
+<div class="flex flex-col gap-2"
+     x-on:device-type-set.window="$wire.set('deviceType', $event.detail.type)">
     <livewire:logo/>
     <x-form class="mt-5" wire:submit="generate">
         <div>
@@ -74,10 +68,10 @@ new class extends Component {
         </div>
 
         <x-textarea
-            class="w-72"
+            class="w-full"
             wire:model="prompt"
             placeholder="Write your prompt here..."
-            rows="3"
+            rows="5"
             inline />
 
         <div class="flex justify-between items-center">

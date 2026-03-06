@@ -17,7 +17,8 @@ it('has non-empty description for all cases', function (BackgroundStyle $style) 
 it('has a valid image URL for all cases', function (BackgroundStyle $style) {
     expect($style->image())
         ->toBeString()
-        ->toStartWith('https://picsum.photos/seed/');
+        ->toContain('storage/styles/')
+        ->toEndWith('.png');
 })->with(BackgroundStyle::cases());
 
 it('has non-empty system prompt for all cases', function (BackgroundStyle $style) {

@@ -29,7 +29,8 @@ class WallpaperService
 
         Cache::increment("pending_jobs:{$sessionId}");
 
-        GenerateWallpaper::dispatch($sessionId, $jobId, $prompt, $style, $deviceType);
+        GenerateWallpaper::dispatch($sessionId, $jobId, $prompt, $style, $deviceType)
+            ->onQueue('wallpapers');
 
         return $jobId;
     }
@@ -53,21 +54,21 @@ class WallpaperService
     }
 
     /**
-     * Get all wallpapers for a session.
+     * Get all wallpapers for a session and device type.
      *
      * @return array<int, array{id: string, url: string, path: string, extension: string}>
      */
-    public function getSessionWallpapers(string $sessionId): array
+    public function getSessionWallpapers(string $sessionId, string $deviceType): array
     {
-        return Cache::get("wallpapers:{$sessionId}", []);
+        return Cache::get("wallpapers:{$sessionId}:{$deviceType}", []);
     }
 
     /**
      * Delete a wallpaper from storage and the session registry.
      */
-    public function deleteWallpaper(string $sessionId, string $wallpaperId): void
+    public function deleteWallpaper(string $sessionId, string $wallpaperId, string $deviceType): void
     {
-        $wallpapers = $this->getSessionWallpapers($sessionId);
+        $wallpapers = $this->getSessionWallpapers($sessionId, $deviceType);
 
         $wallpapers = array_values(array_filter(
             $wallpapers,
@@ -82,7 +83,7 @@ class WallpaperService
             }
         ));
 
-        Cache::put("wallpapers:{$sessionId}", $wallpapers, now()->addDay());
+        Cache::put("wallpapers:{$sessionId}:{$deviceType}", $wallpapers, now()->addDay());
     }
 
     /**

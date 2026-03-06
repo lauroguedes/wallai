@@ -23,12 +23,6 @@ it('renders with default state', function () {
         ->assertSee('Generate');
 });
 
-it('updates device type when device-type-changed event is received', function () {
-    Livewire::test('prompt-form')
-        ->dispatch('device-type-changed', 'desktop')
-        ->assertSet('deviceType', 'desktop');
-});
-
 it('selects a style and closes the drawer', function () {
     Livewire::test('prompt-form')
         ->set('showDrawer', true)
@@ -37,14 +31,14 @@ it('selects a style and closes the drawer', function () {
         ->assertSet('showDrawer', false);
 });
 
-it('dispatches a job and emits wallpaper-job-dispatched event on generate', function () {
+it('dispatches a job and emits wallpaper-job-dispatched event with deviceType on generate', function () {
     Queue::fake();
 
     Livewire::test('prompt-form')
         ->set('prompt', 'a beautiful mountain landscape')
         ->set('selectedStyle', BackgroundStyle::NaturalLandscape->value)
         ->call('generate')
-        ->assertDispatched('wallpaper-job-dispatched');
+        ->assertDispatched('wallpaper-job-dispatched', fn ($name, $params) => $params['deviceType'] === 'mobile');
 
     Queue::assertPushed(GenerateWallpaper::class, function ($job) {
         return $job->prompt === 'a beautiful mountain landscape'
@@ -59,9 +53,9 @@ it('passes device type to dispatched job', function () {
     Livewire::test('prompt-form')
         ->set('prompt', 'a panoramic cityscape')
         ->set('selectedStyle', BackgroundStyle::PhotoRealist->value)
-        ->dispatch('device-type-changed', 'desktop')
+        ->set('deviceType', 'desktop')
         ->call('generate')
-        ->assertDispatched('wallpaper-job-dispatched');
+        ->assertDispatched('wallpaper-job-dispatched', fn ($name, $params) => $params['deviceType'] === 'desktop');
 
     Queue::assertPushed(GenerateWallpaper::class, function ($job) {
         return $job->prompt === 'a panoramic cityscape'
@@ -98,7 +92,7 @@ it('passes device type to service on generatePrompt', function () {
     ]);
 
     Livewire::test('prompt-form')
-        ->dispatch('device-type-changed', 'desktop')
+        ->set('deviceType', 'desktop')
         ->call('generatePrompt');
 
     PromptGenerator::assertPrompted(fn ($prompt) => $prompt->contains('desktop'));

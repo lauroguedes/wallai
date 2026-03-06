@@ -47,18 +47,18 @@ it('stores wallpaper under session directory', function () {
     Storage::disk('public')->assertExists($path);
 });
 
-it('appends wallpaper to session registry', function () {
+it('appends wallpaper to session registry with device type', function () {
     $sessionId = 'test-session-id';
     $jobId = 'test-job-id';
     Cache::put("pending_jobs:{$sessionId}", 1);
-    Cache::put("wallpapers:{$sessionId}", [
+    Cache::put("wallpapers:{$sessionId}:mobile", [
         ['id' => 'existing.png', 'url' => '/existing.png', 'path' => 'wallpapers/existing.png', 'extension' => 'png'],
     ]);
 
     $job = new GenerateWallpaper($sessionId, $jobId, 'a nebula', BackgroundStyle::AbstractFluidArt, DeviceType::Mobile);
     $job->handle(app(\App\Services\WallpaperService::class));
 
-    $wallpapers = Cache::get("wallpapers:{$sessionId}");
+    $wallpapers = Cache::get("wallpapers:{$sessionId}:mobile");
 
     expect($wallpapers)->toHaveCount(2)
         ->and($wallpapers[0]['id'])->toBe('existing.png');
