@@ -23,7 +23,7 @@ it('renders mobile mockup when device type is mobile', function () {
 
 it('renders desktop mockup when device type is desktop', function () {
     Livewire::test('preview', ['deviceType' => 'desktop'])
-        ->assertSeeHtml('mockup-window');
+        ->assertSeeHtml('border-primary/30');
 });
 
 it('loads wallpapers from session cache on mount', function () {

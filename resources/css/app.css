@@ -30,8 +30,12 @@
 }
 
 .right-panel {
-    background: linear-gradient(to bottom right, rgba(37, 99, 235, 0.1), rgba(147, 51, 234, 0.05), rgba(236, 72, 153, 0.1));
+    background:
+        radial-gradient(ellipse at 0% 0%, oklch(from var(--color-primary) l c h / 15%), transparent 50%),
+        radial-gradient(ellipse at 100% 0%, oklch(from var(--color-accent) l c h / 10%), transparent 50%),
+        radial-gradient(ellipse at 50% 100%, oklch(from var(--color-secondary) l c h / 10%), transparent 50%);
 }
+
 
 .left-side-bg {
     background-size: cover;

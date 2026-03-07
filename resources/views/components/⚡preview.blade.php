@@ -176,7 +176,7 @@ new class extends Component {
 
             {{-- Vertical thumbnails on the right --}}
             @if(count($wallpapers) > 0 || count($pendingJobs) > 0)
-                <div class="flex flex-col gap-2 overflow-y-auto max-h-full py-1 px-1">
+                <div class="flex flex-col gap-2 overflow-y-auto overflow-x-hidden max-h-full py-2 px-2">
                     @foreach($wallpapers as $index => $wallpaper)
                         <div class="relative shrink-0 group" wire:key="thumb-{{ $wallpaper['id'] }}">
                             <button wire:click="selectWallpaper({{ $index }})"
@@ -186,7 +186,7 @@ new class extends Component {
                             </button>
                             <button wire:click="deleteWallpaper('{{ $wallpaper['id'] }}')"
                                     class="absolute -top-1.5 -right-1.5 btn btn-error btn-circle btn-xs opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                <x-icon name="lucide.x" class="w-3 h-3" />
+                                <x-icon name="lucide.trash" class="w-3 h-3" />
                             </button>
                         </div>
                     @endforeach
@@ -204,7 +204,7 @@ new class extends Component {
         {{-- Desktop layout: mockup + horizontal thumbnails below --}}
         <div class="flex flex-col items-center gap-3 w-full">
             {{-- Desktop mockup --}}
-            <div class="mockup-window bg-base-100 border border-base-300 w-full">
+            <x-mockup-monitor>
                 <div class="relative bg-linear-to-tr from-slate-700 to-gray-900 flex items-center justify-center aspect-video">
                     @if($showLoading && count($pendingJobs) > 0)
                         <div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-linear-to-tr from-slate-700 to-gray-900">
@@ -222,34 +222,35 @@ new class extends Component {
                             <livewire:logo />
                         </div>
                     @endif
-                </div>
-            </div>
-
-            {{-- Horizontal thumbnails below --}}
-            @if(count($wallpapers) > 0 || count($pendingJobs) > 0)
-                <div class="flex flex-row gap-2 overflow-x-auto max-w-full py-2 px-1">
-                    @foreach($wallpapers as $index => $wallpaper)
-                        <div class="relative shrink-0 group" wire:key="thumb-{{ $wallpaper['id'] }}">
-                            <button wire:click="selectWallpaper({{ $index }})"
-                                    class="w-16 h-16 rounded-lg overflow-hidden border-2 transition-all hover:scale-105
+                    <div class="absolute z-11 bottom-6 left-4">
+                        {{-- Horizontal thumbnails below --}}
+                        @if(count($wallpapers) > 0 || count($pendingJobs) > 0)
+                            <div class="flex flex-row gap-2 overflow-x-auto overflow-x-hidden max-w-full py-2 px-2">
+                                @foreach($wallpapers as $index => $wallpaper)
+                                    <div class="relative shrink-0 group" wire:key="thumb-{{ $wallpaper['id'] }}">
+                                        <button wire:click="selectWallpaper({{ $index }})"
+                                                class="w-16 h-16 rounded-lg overflow-hidden border-2 transition-all hover:scale-105
                                            {{ $activeWallpaper && $activeWallpaper['id'] === $wallpaper['id'] && !$showLoading ? 'border-primary ring-2 ring-primary/30' : 'border-base-300' }}">
-                                <img src="{{ $wallpaper['url'] }}" alt="Thumbnail" class="object-cover w-full h-full" loading="lazy" />
-                            </button>
-                            <button wire:click="deleteWallpaper('{{ $wallpaper['id'] }}')"
-                                    class="absolute -top-1.5 -right-1.5 btn btn-error btn-circle btn-xs opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                <x-icon name="lucide.x" class="w-3 h-3" />
-                            </button>
-                        </div>
-                    @endforeach
+                                            <img src="{{ $wallpaper['url'] }}" alt="Thumbnail" class="object-cover w-full h-full" loading="lazy" />
+                                        </button>
+                                        <button wire:click="deleteWallpaper('{{ $wallpaper['id'] }}')"
+                                                class="absolute -top-1.5 -right-1.5 btn btn-error btn-circle btn-xs opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                            <x-icon name="lucide.trash" class="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                @endforeach
 
-                    @foreach($pendingJobs as $jobId)
-                        <button wire:click="selectPendingJob" wire:key="pending-{{ $jobId }}"
-                                class="shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all
+                                @foreach($pendingJobs as $jobId)
+                                    <button wire:click="selectPendingJob" wire:key="pending-{{ $jobId }}"
+                                            class="shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all
                                        {{ $showLoading ? 'border-primary ring-2 ring-primary/30' : 'border-base-300' }} skeleton">
-                        </button>
-                    @endforeach
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
                 </div>
-            @endif
+            </x-mockup-monitor>
         </div>
     @endif
 </div>
