@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
 use App\Exceptions\ServiceGeneratorException;
 use App\Services\WallpaperService;
@@ -12,7 +13,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 new class extends Component {
     use Toast;
 
-    /** @var array<int, array{id: string, url: string, path: string, extension: string}> */
+    /** @var array<int, array{id: string, url: string, path: string, extension: string, style: string}> */
     public array $wallpapers = [];
 
     public ?array $activeWallpaper = null;
@@ -121,11 +122,14 @@ new class extends Component {
             $path = $wallpaper['path'];
             $extension = $wallpaper['extension'];
             $content = Storage::disk('public')->get($path);
-            $prefix = DeviceType::from($this->deviceType)->filenamePrefix();
+
+            $style = BackgroundStyle::from($wallpaper['style']);
+            $hash = substr($wallpaper['id'], 0, 8);
+            $downloadName = $style->slug().'_'.$this->deviceType.'_'.$hash.'.'.$extension;
 
             return response()->streamDownload(function () use ($content) {
                 echo $content;
-            }, $prefix.'.'.$extension);
+            }, $downloadName);
         } catch (\Throwable $e) {
             $exception = ServiceGeneratorException::downloadFailed($e, [
                 'wallpaper' => $this->activeWallpaper,

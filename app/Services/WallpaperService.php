@@ -18,7 +18,10 @@ class WallpaperService
     /**
      * Maximum number of concurrent pending jobs per session.
      */
-    public const int MAX_PENDING_JOBS = 3;
+    public static function maxPendingJobs(): int
+    {
+        return (int) config('wallpaper.queue_processes', 3);
+    }
 
     /**
      * Dispatch a wallpaper generation job to the queue.
@@ -30,7 +33,7 @@ class WallpaperService
         Cache::increment("pending_jobs:{$sessionId}");
 
         GenerateWallpaper::dispatch($sessionId, $jobId, $prompt, $style, $deviceType)
-            ->onQueue('wallpapers');
+            ->onQueue("wallpapers-{$deviceType->value}");
 
         return $jobId;
     }
@@ -89,7 +92,7 @@ class WallpaperService
     /**
      * Generate a wallpaper image from a prompt, style, and device type.
      *
-     * @return array{id: string, url: string, path: string, extension: string}
+     * @return array{id: string, url: string, path: string, extension: string, style: string}
      *
      * @throws ServiceGeneratorException
      */
@@ -120,6 +123,7 @@ class WallpaperService
                 'url' => Storage::disk('public')->url($path),
                 'path' => $path,
                 'extension' => $extension,
+                'style' => $style->value,
             ];
         } catch (\Throwable $e) {
             throw ServiceGeneratorException::imageGeneration($e, [

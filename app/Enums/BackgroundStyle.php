@@ -78,6 +78,14 @@ enum BackgroundStyle: string
     }
 
     /**
+     * Lowercase slug for download filenames (no spaces or underscores).
+     */
+    public function slug(): string
+    {
+        return strtolower(str_replace([' ', '_'], '', $this->title()));
+    }
+
+    /**
      * Representative preview image URL from local storage.
      */
     public function image(): string

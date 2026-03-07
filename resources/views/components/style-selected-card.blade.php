@@ -1,6 +1,6 @@
 @props(['style'])
 
-<div {{ $attributes->class(['relative rounded-xl overflow-hidden cursor-pointer h-20 w-full group']) }}>
+<div {{ $attributes->class(['relative rounded-xl overflow-hidden cursor-pointer h-25 w-full group']) }}>
     <img src="{{ $style->image() }}" alt="{{ $style->title() }}"
          class="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105" />
     <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-black/20"></div>

@@ -21,6 +21,17 @@ it('has a valid image URL for all cases', function (BackgroundStyle $style) {
         ->toEndWith('.png');
 })->with(BackgroundStyle::cases());
 
+it('has a lowercase slug without spaces or underscores for all cases', function (BackgroundStyle $style) {
+    $slug = $style->slug();
+
+    expect($slug)
+        ->toBeString()
+        ->not->toBeEmpty()
+        ->not->toContain(' ')
+        ->not->toContain('_')
+        ->toBe(strtolower($slug));
+})->with(BackgroundStyle::cases());
+
 it('has non-empty system prompt for all cases', function (BackgroundStyle $style) {
     expect($style->systemPrompt())->toBeString()->not->toBeEmpty();
 })->with(BackgroundStyle::cases());

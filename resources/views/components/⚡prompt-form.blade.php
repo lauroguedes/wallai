@@ -28,7 +28,7 @@ new class extends Component {
     {
         $sessionId = session()->getId();
 
-        if ($service->getPendingJobCount($sessionId) >= WallpaperService::MAX_PENDING_JOBS) {
+        if ($service->getPendingJobCount($sessionId) >= WallpaperService::maxPendingJobs()) {
             $this->error('You have too many pending generations. Please wait.');
 
             return;
@@ -59,7 +59,7 @@ new class extends Component {
 <div class="flex flex-col gap-2"
      x-on:device-type-set.window="$wire.set('deviceType', $event.detail.type)">
     <livewire:logo/>
-    <x-form class="mt-5" wire:submit="generate">
+    <x-form class="mt-5 w-full min-w-xs max-w-xs" wire:submit="generate">
         <div>
             <label class="label label-text font-semibold mb-1">Style</label>
             <x-style-selected-card
@@ -71,7 +71,7 @@ new class extends Component {
             class="w-full"
             wire:model="prompt"
             placeholder="Write your prompt here..."
-            rows="5"
+            rows="8"
             inline />
 
         <div class="flex justify-between items-center">

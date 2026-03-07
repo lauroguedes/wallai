@@ -136,32 +136,32 @@ it('clears active wallpaper when deleted wallpaper was active', function () {
         ->assertSet('activeWallpaper', null);
 });
 
-it('streams download without deleting file', function () {
-    Storage::disk('public')->put('wallpapers/test-id.png', 'fake-image-content');
+it('streams download with style slug, device type, and hash in filename', function () {
+    Storage::disk('public')->put('wallpapers/01JTEST1ABC.png', 'fake-image-content');
 
     $wallpapers = [
-        ['id' => 'test-id.png', 'url' => '/storage/wallpapers/test-id.png', 'path' => 'wallpapers/test-id.png', 'extension' => 'png'],
+        ['id' => '01JTEST1ABC.png', 'url' => '/storage/wallpapers/01JTEST1ABC.png', 'path' => 'wallpapers/01JTEST1ABC.png', 'extension' => 'png', 'style' => 'photoRealist'],
     ];
     Cache::put('wallpapers:'.session()->getId().':mobile', $wallpapers, now()->addDay());
 
     Livewire::test('preview', ['deviceType' => 'mobile'])
         ->call('downloadImage')
-        ->assertFileDownloaded('phone_wallpaper.png');
+        ->assertFileDownloaded('photorealist_mobile_01JTEST1.png');
 
-    Storage::disk('public')->assertExists('wallpapers/test-id.png');
+    Storage::disk('public')->assertExists('wallpapers/01JTEST1ABC.png');
 });
 
-it('streams download with desktop filename when device type is desktop', function () {
-    Storage::disk('public')->put('wallpapers/test-id.png', 'fake-image-content');
+it('streams download with desktop device type in filename', function () {
+    Storage::disk('public')->put('wallpapers/01JTEST2DEF.png', 'fake-image-content');
 
     $wallpapers = [
-        ['id' => 'test-id.png', 'url' => '/storage/wallpapers/test-id.png', 'path' => 'wallpapers/test-id.png', 'extension' => 'png'],
+        ['id' => '01JTEST2DEF.png', 'url' => '/storage/wallpapers/01JTEST2DEF.png', 'path' => 'wallpapers/01JTEST2DEF.png', 'extension' => 'png', 'style' => 'naturalLandscape'],
     ];
     Cache::put('wallpapers:'.session()->getId().':desktop', $wallpapers, now()->addDay());
 
     Livewire::test('preview', ['deviceType' => 'desktop'])
         ->call('downloadImage')
-        ->assertFileDownloaded('desktop_wallpaper.png');
+        ->assertFileDownloaded('naturallandscape_desktop_01JTEST2.png');
 });
 
 it('shows polling when pending jobs exist', function () {

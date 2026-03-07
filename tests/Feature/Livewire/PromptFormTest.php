@@ -65,7 +65,7 @@ it('passes device type to dispatched job', function () {
 
 it('blocks generation when max pending jobs reached', function () {
     Queue::fake();
-    Cache::put('pending_jobs:'.session()->getId(), WallpaperService::MAX_PENDING_JOBS);
+    Cache::put('pending_jobs:'.session()->getId(), WallpaperService::maxPendingJobs());
 
     Livewire::test('prompt-form')
         ->set('prompt', 'test prompt')

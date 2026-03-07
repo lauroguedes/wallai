@@ -26,9 +26,10 @@ it('generates an image and stores it to disk', function () {
     $result = $service->generateImage('a beautiful sunset', BackgroundStyle::PhotoRealist);
 
     expect($result)
-        ->toHaveKeys(['id', 'url', 'path', 'extension'])
+        ->toHaveKeys(['id', 'url', 'path', 'extension', 'style'])
         ->and($result['path'])->toStartWith('wallpapers/')
-        ->and($result['extension'])->toBeString();
+        ->and($result['extension'])->toBeString()
+        ->and($result['style'])->toBe('photoRealist');
 
     Storage::disk('public')->assertExists($result['path']);
 
@@ -45,7 +46,8 @@ it('generates a landscape image for desktop device type', function () {
     $result = $service->generateImage('a mountain range', BackgroundStyle::NaturalLandscape, DeviceType::Desktop);
 
     expect($result)
-        ->toHaveKeys(['id', 'url', 'path', 'extension']);
+        ->toHaveKeys(['id', 'url', 'path', 'extension', 'style'])
+        ->and($result['style'])->toBe('naturalLandscape');
 
     Storage::disk('public')->assertExists($result['path']);
 
@@ -252,19 +254,28 @@ it('stores image under session directory when sessionId is provided', function (
     Storage::disk('public')->assertExists($result['path']);
 });
 
-it('dispatches a GenerateWallpaper job', function () {
+it('dispatches a GenerateWallpaper job to device-specific queue', function () {
     Queue::fake();
 
     $service = app(WallpaperService::class);
     $jobId = $service->dispatchGeneration('session-123', 'a sunset', BackgroundStyle::PhotoRealist, DeviceType::Mobile);
 
     expect($jobId)->toBeString()->not->toBeEmpty();
-    Queue::assertPushed(GenerateWallpaper::class, function ($job) {
+    Queue::assertPushedOn('wallpapers-mobile', GenerateWallpaper::class, function ($job) {
         return $job->sessionId === 'session-123'
             && $job->prompt === 'a sunset'
             && $job->style === BackgroundStyle::PhotoRealist
             && $job->deviceType === DeviceType::Mobile;
     });
+});
+
+it('dispatches desktop job to wallpapers-desktop queue', function () {
+    Queue::fake();
+
+    $service = app(WallpaperService::class);
+    $service->dispatchGeneration('session-123', 'a cityscape', BackgroundStyle::CyberpunkCityscape, DeviceType::Desktop);
+
+    Queue::assertPushedOn('wallpapers-desktop', GenerateWallpaper::class);
 });
 
 it('increments pending job count on dispatch', function () {
