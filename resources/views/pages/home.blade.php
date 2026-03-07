@@ -13,7 +13,18 @@ new class extends Component {
 
         {{-- Main content area --}}
         <div class="drawer-content flex h-screen items-center w-full">
-            <div x-data="{ deviceType: 'mobile' }" class="w-full flex flex-col items-center gap-4 h-full justify-center right-panel relative">
+            <div x-data="{ deviceType: 'mobile', wallpaperBgUrls: { mobile: null, desktop: null } }"
+                 x-on:wallpaper-bg-updated.window="wallpaperBgUrls[$event.detail.deviceType] = $event.detail.url"
+                 class="w-full flex flex-col items-center gap-4 h-full justify-center relative overflow-hidden">
+
+                {{-- Frosted glass background effect (tablet/desktop only) --}}
+                <img x-show="wallpaperBgUrls[deviceType]" :src="wallpaperBgUrls[deviceType]"
+                     x-transition:enter="transition-opacity duration-700"
+                     x-transition:enter-start="opacity-0"
+                     x-transition:enter-end="opacity-30"
+                     class="hidden md:block absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110 pointer-events-none z-0"
+                     alt="" />
+                <div class="hidden md:block absolute inset-0 right-panel-gradient pointer-events-none z-[1]"></div>
 
                 {{-- Top bar: settings button + device toggle --}}
                 <div class="fixed top-3 z-30 flex items-center gap-2">
@@ -38,10 +49,10 @@ new class extends Component {
                 </div>
 
                 {{-- Preview instances --}}
-                <div x-show="deviceType === 'mobile'" class="w-full flex justify-center md:mt-3 h-full md:h-auto">
+                <div x-show="deviceType === 'mobile'" class="w-full flex justify-center md:mt-3 h-full md:h-auto relative z-10">
                     <livewire:preview device-type="mobile" wire:key="preview-mobile" />
                 </div>
-                <div x-show="deviceType === 'desktop'" x-cloak class="w-full justify-center px-8 hidden md:flex">
+                <div x-show="deviceType === 'desktop'" x-cloak class="w-full justify-center px-8 hidden md:flex relative z-10">
                     <livewire:preview device-type="desktop" wire:key="preview-desktop" />
                 </div>
             </div>

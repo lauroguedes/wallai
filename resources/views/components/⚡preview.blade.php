@@ -146,6 +146,11 @@ new class extends Component {
 <div @if(count($pendingJobs) > 0) wire:poll.5s="checkPendingJobs" @endif
      class="flex flex-col items-center justify-center gap-4 w-full h-full">
 
+    {{-- Sync active wallpaper URL to parent for frosted glass background --}}
+    <div x-init="$dispatch('wallpaper-bg-updated', { url: {{ Js::from($activeWallpaper['url'] ?? null) }}, deviceType: '{{ $deviceType }}' })"
+         wire:key="bg-sync-{{ $activeWallpaper['id'] ?? 'none' }}"
+         class="hidden"></div>
+
     @if($deviceType === 'mobile')
         {{-- Fullscreen mobile — no mockup frame (visible on mobile devices only) --}}
         <div class="md:hidden w-full h-screen relative bg-linear-to-tr from-slate-700 to-gray-900 flex items-center justify-center">

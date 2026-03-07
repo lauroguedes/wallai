@@ -29,7 +29,7 @@
   }
 }
 
-.right-panel {
+.right-panel-gradient {
     background:
         radial-gradient(ellipse at 0% 0%, oklch(from var(--color-primary) l c h / 15%), transparent 50%),
         radial-gradient(ellipse at 100% 0%, oklch(from var(--color-accent) l c h / 10%), transparent 50%),
