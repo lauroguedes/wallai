@@ -147,8 +147,63 @@ new class extends Component {
      class="flex flex-col items-center justify-center gap-4 w-full h-full">
 
     @if($deviceType === 'mobile')
-        {{-- Mobile layout: mockup + vertical thumbnails on the right --}}
-        <div class="flex flex-row items-center gap-3 h-[85vh]">
+        {{-- Fullscreen mobile — no mockup frame (visible on mobile devices only) --}}
+        <div class="md:hidden w-full h-screen relative bg-linear-to-tr from-slate-700 to-gray-900 flex items-center justify-center">
+            @if($showLoading && count($pendingJobs) > 0)
+                <div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-linear-to-tr from-slate-700 to-gray-900">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                    <span class="text-sm text-base-content/70 animate-pulse">{{ $loadingPhrase }}</span>
+                </div>
+            @endif
+            @if($activeWallpaper && !$showLoading)
+                <img wire:replace loading="lazy" class="object-cover w-full h-full" alt="Wallpaper"
+                     src="{{ $activeWallpaper['url'] }}" />
+                <div class="absolute bottom-6 right-4 flex gap-2 z-20">
+                    <x-button wire:click="downloadImage"
+                              class="btn-accent btn-circle" icon="c-arrow-down-tray" spinner />
+                    <button wire:click="downloadImage"
+                            x-on:click="$nextTick(() => document.getElementById('wallpaper-instructions-modal').showModal())"
+                            class="btn btn-primary btn-circle">
+                        <x-icon name="lucide.smartphone" class="w-5 h-5" />
+                    </button>
+                </div>
+            @elseif(!$showLoading || count($pendingJobs) === 0)
+                <div class="opacity-20">
+                    <livewire:logo />
+                </div>
+            @endif
+
+            {{-- Horizontal thumbnails at bottom --}}
+            @if(count($wallpapers) > 0 || count($pendingJobs) > 0)
+                <div class="absolute bottom-20 left-0 right-0 px-4 z-20">
+                    <div class="flex flex-row gap-2 overflow-x-auto py-2 px-2">
+                        @foreach($wallpapers as $index => $wallpaper)
+                            <div class="relative shrink-0 group" wire:key="thumb-fs-{{ $wallpaper['id'] }}">
+                                <button wire:click="selectWallpaper({{ $index }})"
+                                        class="w-14 h-14 rounded-lg overflow-hidden border-2 transition-all hover:scale-105
+                                               {{ $activeWallpaper && $activeWallpaper['id'] === $wallpaper['id'] && !$showLoading ? 'border-primary ring-2 ring-primary/30' : 'border-base-300' }}">
+                                    <img src="{{ $wallpaper['url'] }}" alt="Thumbnail" class="object-cover w-full h-full" loading="lazy" />
+                                </button>
+                                <button wire:click="deleteWallpaper('{{ $wallpaper['id'] }}')"
+                                        class="absolute -top-1.5 -right-1.5 btn btn-error btn-circle btn-xs opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <x-icon name="lucide.trash" class="w-3 h-3" />
+                                </button>
+                            </div>
+                        @endforeach
+
+                        @foreach($pendingJobs as $jobId)
+                            <button wire:click="selectPendingJob" wire:key="pending-fs-{{ $jobId }}"
+                                    class="shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all
+                                           {{ $showLoading ? 'border-primary ring-2 ring-primary/30' : 'border-base-300' }} skeleton">
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        </div>
+
+        {{-- Mockup mobile — phone frame (visible on tablet/desktop only) --}}
+        <div class="hidden md:flex flex-row items-center gap-3 h-[85vh]">
             {{-- Phone mockup --}}
             <div class="mockup-phone border-primary h-full w-auto max-w-none">
                 <div class="mockup-phone-camera"></div>
@@ -253,4 +308,24 @@ new class extends Component {
             </x-mockup-monitor>
         </div>
     @endif
+
+    {{-- Set as Wallpaper instructions modal (mobile only) --}}
+    <dialog id="wallpaper-instructions-modal" class="modal modal-bottom md:hidden">
+        <div class="modal-box">
+            <h3 class="text-lg font-bold">Set as Wallpaper</h3>
+            <p class="py-2 text-base-content/70">Your wallpaper has been downloaded!</p>
+            <ol class="list-decimal list-inside space-y-2 text-sm">
+                <li>Open your <strong>Photos</strong> or <strong>Gallery</strong> app</li>
+                <li>Find the downloaded image</li>
+                <li>Tap <strong>Share</strong> or the <strong>⋮ Menu</strong></li>
+                <li>Select <strong>"Set as Wallpaper"</strong></li>
+            </ol>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn btn-primary">Got it</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
 </div>

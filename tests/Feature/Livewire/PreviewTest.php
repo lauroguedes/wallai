@@ -23,7 +23,7 @@ it('renders mobile mockup when device type is mobile', function () {
 
 it('renders desktop mockup when device type is desktop', function () {
     Livewire::test('preview', ['deviceType' => 'desktop'])
-        ->assertSeeHtml('border-primary/30');
+        ->assertSeeHtml('border-2 border-primary');
 });
 
 it('loads wallpapers from session cache on mount', function () {
@@ -173,6 +173,11 @@ it('shows polling when pending jobs exist', function () {
 it('does not show polling when no pending jobs', function () {
     Livewire::test('preview', ['deviceType' => 'mobile'])
         ->assertDontSeeHtml('wire:poll.5s="checkPendingJobs"');
+});
+
+it('renders wallpaper instructions modal for mobile', function () {
+    Livewire::test('preview', ['deviceType' => 'mobile'])
+        ->assertSeeHtml('wallpaper-instructions-modal');
 });
 
 it('shows download and delete buttons when active wallpaper exists', function () {

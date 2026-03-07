@@ -81,14 +81,16 @@ new class extends Component {
         </div>
     </x-form>
 
-    <x-drawer wire:model="showDrawer" title="Choose a Style" right withCloseButton closeOnEscape class="w-11/12 lg:w-1/3">
-        <div class="grid grid-cols-2 gap-3">
-            @foreach(BackgroundStyle::cases() as $style)
-                <x-style-picker-card
-                    :style="$style"
-                    :selected="$style->value === $selectedStyle"
-                    wire:click="selectStyle('{{ $style->value }}')" />
-            @endforeach
-        </div>
-    </x-drawer>
+    @teleport('body')
+        <x-drawer wire:model="showDrawer" title="Choose a Style" right withCloseButton closeOnEscape class="w-11/12 lg:w-1/3">
+            <div class="grid grid-cols-2 gap-3">
+                @foreach(BackgroundStyle::cases() as $style)
+                    <x-style-picker-card
+                        :style="$style"
+                        :selected="$style->value === $selectedStyle"
+                        wire:click="selectStyle('{{ $style->value }}')" />
+                @endforeach
+            </div>
+        </x-drawer>
+    @endteleport
 </div>
