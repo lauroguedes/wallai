@@ -68,16 +68,16 @@ new class extends Component {
         </div>
 
         <x-textarea
-            class="w-full"
+            class="w-full rounded-2xl"
             wire:model="prompt"
             placeholder="Write your prompt here..."
             rows="8"
             inline />
 
         <div class="flex justify-between items-center">
-            <x-button wire:click="generatePrompt" icon="lucide.dices" class="btn-square"
+            <x-button wire:click="generatePrompt" tooltip-right="Generate Prompt" icon="lucide.dices" class="btn-square btn-soft rounded-2xl"
                       spinner="generatePrompt" />
-            <x-button class="btn-secondary" type="submit" spinner="generate">Generate</x-button>
+            <x-button class="btn-secondary rounded-2xl" icon="lucide.sparkles" type="submit" spinner="generate">Generate</x-button>
         </div>
     </x-form>
 
