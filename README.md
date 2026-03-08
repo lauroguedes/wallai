@@ -1,115 +1,109 @@
-# Wallai - AI Smartphone Wallpaper Generator 🎨
+# WallAI - AI Wallpaper Generator
 
-Generate unique, AI-powered wallpapers perfectly sized for your smartphone using state-of-the-art image generation models through Replicate API.
+Generate unique, AI-powered wallpapers for mobile and desktop using 🍌Nano Banana 2 and the Laravel AI SDK. Choose from 18 curated styles, customize your prompt, and download high-resolution images ready to use.
 
 https://github.com/user-attachments/assets/47a2384d-e978-48b0-bf64-95930f1fb020
 
-## ✨ Features
+## Features
 
-- AI-powered wallpaper generation
-- Real-time preview using
-- Modern, responsive UI components
-- Easy-to-use prompt interface
-- Download generated wallpapers in high resolution
-- Prompt generator for generating prompts
+- **21 Curated Styles** — Minimal Geometric, Botanical Watercolor, Abstract Fluid Art, Cyberpunk, Manga/Anime, Natural Landscape, Photo Realist, Surrealism, Steampunk, and more
+- **Mobile & Desktop** — Generate wallpapers in portrait (9:16) or landscape (16:9) at up to 4K resolution
+- **AI Prompt Generator** — Auto-generate creative prompts with optional context from your own text
+- **Real-Time Preview** — Phone mockup for mobile, monitor mockup for desktop, with frosted glass background effect
+- **Structured Prompts** — The AI agent produces detailed JSON prompts covering subject, scene, lighting, camera, and negative prompts for high-quality results
+- **Queue-Based Generation** — Background processing via Laravel Horizon with dedicated mobile/desktop queues
+- **Session-Based Storage** — Wallpapers are stored per session with thumbnail gallery, selection, and deletion
+- **Responsive UI** — Fullscreen preview on mobile devices, drawer sidebar on tablet/desktop
+- **Download & Instructions** — One-tap download with "Set as Wallpaper" instructions on mobile
 
-## 🔧 Tech Stack
+## Tech Stack
 
-- **Backend Framework:** [Laravel](https://laravel.com)
-- **Frontend:** [Livewire](https://livewire.laravel.com) for real-time interactions
-- **UI Components:** [MaryUI](https://mary-ui.com) / [DaisyUI](https://daisyui.com)
-- **AI Integration:** [Replicate](https://replicate.com)
+- **[Laravel 12](https://laravel.com)** — Backend framework
+- **[Livewire v4](https://livewire.laravel.com)** — Reactive single-file components
+- **[Laravel AI SDK](https://github.com/laravel/ai)** — AI agents for prompt and image generation (🍌Nano Banana 2)
+- **[Laravel Horizon](https://laravel.com/docs/horizon)** — Queue monitoring and management
+- **[MaryUI](https://mary-ui.com) / [DaisyUI](https://daisyui.com)** — UI component library
+- **[Tailwind CSS v4](https://tailwindcss.com)** — Utility-first styling
+- **[Pest](https://pestphp.com)** — Testing framework
 
-## 📋 Prerequisites
+## Prerequisites
 
-- PHP >= 8.2
-- Laravel 11
+- PHP >= 8.4
 - Node.js & NPM
-- Replicate API key
+- Redis (required for Horizon queues)
+- [Google Gemini API key](https://ai.google.dev/)
 
-## 🚀 Installation
+## Installation
 
-1. Clone the repository:
+1. Clone and install dependencies:
+
 ```bash
 git clone https://github.com/lauroguedes/wallai.git
 cd wallai
-```
-
-2. Install dependencies:
-```bash
 composer install
-```
-```bash
 npm install
 ```
 
-3. Copy the environment file and set up your variables:
+2. Set up environment:
+
 ```bash
 cp .env.example .env
-```
-
-5. Configure your Replicate API key in `.env`:
-```
-REPLICATE_API_TOKEN=your_api_key_here
-```
-
-6. Generate application key:
-```bash
 php artisan key:generate
 ```
 
-7. Run migrations:
-```bash
-php artisan migrate
+3. Configure your API key in `.env`:
+
+```
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-8. Build assets:
+4. Run migrations and build assets:
+
 ```bash
+php artisan migrate
 npm run build
 ```
 
-9. Start the development server:
+5. Start the application:
+
 ```bash
-php artisan serve
+composer run dev
 ```
 
-## 🛠️ Configuration
+This starts the web server, queue worker, log viewer, and Vite dev server concurrently.
 
-### Replicate API Setup
+## Configuration
 
-1. Create an account at [replicate.com](https://replicate.com)
-2. Generate an API key
-3. Add the API key to your `.env` file
+### Queue Processing
 
-### Replicate API Settings
+Wallpaper generation runs on dedicated queues (`wallpapers-mobile` and `wallpapers-desktop`). Configure the number of concurrent workers in `.env`:
 
-Default replicate API settings can be configured in `config/services.php` or using environment variables:
-
-```php
-return [
-    'replicate' => [
-        'key' => env('REPLICATE_API_KEY'),
-        'image_generator_model' => env('REPLICATE_IMAGE_GENERATOR_MODEL', 'black-forest-labs/flux-schnell'),
-        'text_generator_model' => env('REPLICATE_TEXT_GENERATOR_MODEL', 'meta/meta-llama-3-8b-instruct'),
-        'aspect_ratio' => env('REPLICATE_ASPECT_RATIO', '9:21'),
-        'output_format' => env('REPLICATE_OUTPUT_FORMAT', 'webp'),
-    ],
-];
+```
+WALLPAPER_QUEUE_PROCESSES=3
 ```
 
-## System Prompts Settings
+Monitor queues via Horizon at `/horizon`.
 
-Default system prompts can be configured or changed using environment variables.
+### AI Providers
 
-```php
-IMAGE_GENERATOR_SYSTEM_PROMPT=
-TEXT_GENERATOR_SYSTEM_PROMPT=
-```
+The default image and prompt provider is Google Gemini. Provider configuration lives in `config/ai.php`.
 
-## 🎯 Usage
+## Usage
 
-1. Visit the application in your browser
-2. Enter a description of the wallpaper you want to generate
-3. Select your smartphone model or enter custom dimensions
-4. Click "Generate" and wait for the AI to create your wallpaper
-5. Download the generated wallpaper directly to your device
+1. Open the app in your browser
+2. Pick a wallpaper style from the sidebar
+3. Optionally write a description — the AI prompt generator will use it as context
+4. Click the dice icon to auto-generate a prompt, or write your own
+5. Hit **Generate** and wait for the result
+6. Switch between **Mobile** and **Desktop** tabs to generate for different devices
+7. Browse your generated wallpapers in the thumbnail gallery
+8. Download directly to your device
+
+## License
+
+[MIT](LICENSE)
+
+---
+Please if you find this project helpful, consider giving it a ⭐ on GitHub!
+
+Crafted by artisan ⛏️ [Lauro Guedes](https://lauroguedes.dev)

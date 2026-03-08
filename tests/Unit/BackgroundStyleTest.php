@@ -3,7 +3,7 @@
 use App\Enums\BackgroundStyle;
 
 it('has exactly 18 cases', function () {
-    expect(BackgroundStyle::cases())->toHaveCount(18);
+    expect(BackgroundStyle::cases())->toHaveCount(21);
 });
 
 it('has non-empty title for all cases', function (BackgroundStyle $style) {

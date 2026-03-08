@@ -48,7 +48,7 @@ new class extends Component {
         try {
             $style = BackgroundStyle::from($this->selectedStyle);
             $deviceType = DeviceType::from($this->deviceType);
-            $this->prompt = $service->generatePrompt($style, $deviceType);
+            $this->prompt = $service->generatePrompt($style, $deviceType, $this->prompt);
         } catch (ServiceGeneratorException $e) {
             report($e);
             $this->error($e->getUserMessage());
@@ -58,7 +58,7 @@ new class extends Component {
 
 <div class="flex flex-col gap-2"
      x-on:device-type-set.window="$wire.set('deviceType', $event.detail.type)">
-    <livewire:logo/>
+    <x-logo />
     <x-form class="mt-5 w-full min-w-xs max-w-xs" wire:submit="generate">
         <div>
             <label class="label label-text font-semibold mb-1">Style</label>

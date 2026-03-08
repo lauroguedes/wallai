@@ -22,17 +22,12 @@ new class extends Component {
                      x-transition:enter="transition-opacity duration-700"
                      x-transition:enter-start="opacity-0"
                      x-transition:enter-end="opacity-30"
-                     class="hidden md:block absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110 pointer-events-none z-0"
+                     class="hidden md:block absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-110 pointer-events-none z-0"
                      alt="" />
                 <div class="hidden md:block absolute inset-0 right-panel-gradient pointer-events-none z-[1]"></div>
 
                 {{-- Top bar: settings button + device toggle --}}
                 <div class="fixed top-3 z-30 flex items-center gap-2">
-                    {{-- Settings icon (tablet & mobile only) --}}
-                    <label for="settings-drawer" class="btn btn-circle btn-ghost lg:hidden backdrop-blur-md bg-base-100/50">
-                        <x-icon name="lucide.settings" class="w-5 h-5" />
-                    </label>
-
                     {{-- Device toggle (hidden on mobile, visible on md+) --}}
                     <div class="join hidden md:flex rounded-2xl border border-base-200 p-1 backdrop-blur-md bg-base-100/50">
                         <button @click="deviceType = 'mobile'; $dispatch('device-type-set', { type: 'mobile' })"
@@ -52,17 +47,30 @@ new class extends Component {
                 <div x-show="deviceType === 'mobile'" class="w-full flex justify-center md:mt-3 h-full md:h-auto relative z-10">
                     <livewire:preview device-type="mobile" wire:key="preview-mobile" />
                 </div>
-                <div x-show="deviceType === 'desktop'" x-cloak class="w-full justify-center px-8 hidden md:flex relative z-10">
+                <div x-show="deviceType === 'desktop'" x-cloak class="w-full justify-center px-10 hidden md:flex relative z-10">
                     <livewire:preview device-type="desktop" wire:key="preview-desktop" />
                 </div>
             </div>
         </div>
+
+        {{-- Settings icon (tablet & mobile only) --}}
+        <label for="settings-drawer" class="fixed z-30 top-6 left-6 btn btn-circle btn-soft lg:hidden backdrop-blur-sm bg-base-100/50">
+            <x-icon name="lucide.wand-sparkles" class="w-5 h-5" />
+        </label>
 
         {{-- Drawer sidebar --}}
         <div class="drawer-side z-40">
             <label for="settings-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
             <div class="w-full md:px-7 max-w-sm min-h-full border-r border-neutral left-side-bg flex justify-center items-center">
                 <livewire:prompt-form />
+                {{-- Footer --}}
+                <footer class="fixed bottom-3 z-30 flex items-center gap-2 text-xs text-base-content/50">
+                    <span>Crafted by artisan <x-icon class="w-3 h-3 text-error" name="lucide.heart" /> <a href="https://lauroguedes.dev" target="_blank" class="underline hover:text-base-content/80">Lauro Guedes</a></span>
+                    <span>|</span>
+                    <a title="Star the project" href="https://github.com/lauroguedes/wallai" target="_blank" class="hover:text-base-content/80">
+                        <x-icon name="lucide.github" class="w-4 h-4" />
+                    </a>
+                </footer>
             </div>
         </div>
     </div>

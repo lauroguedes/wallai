@@ -6,15 +6,13 @@ use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Provider;
-use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
-use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 use Stringable;
 
-#[Provider('gemini')]
+#[Provider(['gemini'])]
 #[Timeout(120)]
 class ImagePromptAgent implements Agent, HasStructuredOutput
 {

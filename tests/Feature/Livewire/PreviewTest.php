@@ -13,7 +13,7 @@ it('renders with empty state showing logo', function () {
         ->assertSet('wallpapers', [])
         ->assertSet('activeWallpaper', null)
         ->assertSet('deviceType', 'mobile')
-        ->assertSeeLivewire('logo');
+        ->assertSeeHtml('opacity-20');
 });
 
 it('renders mobile mockup when device type is mobile', function () {

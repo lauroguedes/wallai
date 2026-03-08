@@ -99,7 +99,7 @@ class WallpaperService
     public function generateImage(string $prompt, BackgroundStyle $style, DeviceType $deviceType = DeviceType::Mobile, ?string $sessionId = null): array
     {
         try {
-            $structuredResponse = (new ImagePromptAgent($style, $deviceType))->prompt($prompt);
+            $structuredResponse = new ImagePromptAgent($style, $deviceType)->prompt($prompt);
             $engineeredPrompt = $this->flattenStructuredPrompt($structuredResponse->toArray());
 
             $response = Image::of($engineeredPrompt)
@@ -139,15 +139,19 @@ class WallpaperService
      *
      * @throws ServiceGeneratorException
      */
-    public function generatePrompt(BackgroundStyle $style, DeviceType $deviceType = DeviceType::Mobile): string
+    public function generatePrompt(BackgroundStyle $style, DeviceType $deviceType = DeviceType::Mobile, string $userPrompt = ''): string
     {
         try {
             $deviceContext = $deviceType->promptContext();
 
-            $response = (new PromptGenerator)->prompt(
-                "Generate a creative image prompt for a {$style->title()} style {$deviceContext}. "
-                ."The style is described as: {$style->description()}"
-            );
+            $message = "Generate a creative image prompt for a {$style->title()} style {$deviceContext}. "
+                ."The style is described as: {$style->description()}";
+
+            if ($userPrompt !== '') {
+                $message .= " Use this text as context and inspiration: {$userPrompt}";
+            }
+
+            $response = (new PromptGenerator)->prompt($message);
 
             return trim($response->text);
         } catch (\Throwable $e) {
