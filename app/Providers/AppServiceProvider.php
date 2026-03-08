@@ -2,13 +2,10 @@
 
 namespace App\Providers;
 
-use App\Services\AbstractImageGenerator;
-use App\Services\AbstractTextGenerator;
-use App\Services\Flux;
-use App\Services\ReplicateGenerateImage;
-use App\Services\ReplicateGenerateText;
-use App\Services\StableDiffusion;
+use App\Livewire\Hooks\HandleExceptions;
+use App\Services\WallpaperService;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -17,19 +14,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(AbstractImageGenerator::class, function ($app) {
-            return match (config('app.image_generator_service')) {
-                'replicate' => $app->make(ReplicateGenerateImage::class),
-                default => throw new \Exception('Invalid image generator service'),
-            };
-        });
-
-        $this->app->singleton(AbstractTextGenerator::class, function ($app) {
-            return match (config('app.text_generator_service')) {
-                'replicate' => $app->make(ReplicateGenerateText::class),
-                default => throw new \Exception('Invalid text generator service'),
-            };
-        });
+        $this->app->singleton(WallpaperService::class);
     }
 
     /**
@@ -37,6 +22,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Livewire::componentHook(HandleExceptions::class);
     }
 }
