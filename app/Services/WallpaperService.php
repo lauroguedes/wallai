@@ -30,7 +30,7 @@ class WallpaperService
     {
         $jobId = (string) Str::ulid();
 
-        Cache::increment("pending_jobs:{$sessionId}");
+        Cache::put("pending_jobs:{$sessionId}", $this->getPendingJobCount($sessionId) + 1, now()->addDay());
 
         GenerateWallpaper::dispatch($sessionId, $jobId, $prompt, $style, $deviceType)
             ->onQueue("wallpapers-{$deviceType->value}");
@@ -61,32 +61,31 @@ class WallpaperService
      *
      * @return array<int, array{id: string, url: string, path: string, extension: string}>
      */
-    public function getSessionWallpapers(string $sessionId, string $deviceType): array
+    public function getSessionWallpapers(string $sessionId, DeviceType|string $deviceType): array
     {
-        return Cache::get("wallpapers:{$sessionId}:{$deviceType}", []);
+        $deviceValue = $deviceType instanceof DeviceType ? $deviceType->value : $deviceType;
+
+        return Cache::get("wallpapers:{$sessionId}:{$deviceValue}", []);
     }
 
     /**
      * Delete a wallpaper from storage and the session registry.
      */
-    public function deleteWallpaper(string $sessionId, string $wallpaperId, string $deviceType): void
+    public function deleteWallpaper(string $sessionId, string $wallpaperId, DeviceType|string $deviceType): array
     {
-        $wallpapers = $this->getSessionWallpapers($sessionId, $deviceType);
+        $deviceValue = $deviceType instanceof DeviceType ? $deviceType->value : $deviceType;
+        $wallpapers = $this->getSessionWallpapers($sessionId, $deviceValue);
 
-        $wallpapers = array_values(array_filter(
-            $wallpapers,
-            function (array $wallpaper) use ($wallpaperId) {
-                if ($wallpaper['id'] === $wallpaperId) {
-                    Storage::disk('public')->delete($wallpaper['path']);
+        $toDelete = array_filter($wallpapers, fn (array $w) => $w['id'] === $wallpaperId);
+        foreach ($toDelete as $wallpaper) {
+            Storage::disk('public')->delete($wallpaper['path']);
+        }
 
-                    return false;
-                }
+        $wallpapers = array_values(array_filter($wallpapers, fn (array $w) => $w['id'] !== $wallpaperId));
 
-                return true;
-            }
-        ));
+        Cache::put("wallpapers:{$sessionId}:{$deviceValue}", $wallpapers, now()->addDay());
 
-        Cache::put("wallpapers:{$sessionId}:{$deviceType}", $wallpapers, now()->addDay());
+        return $wallpapers;
     }
 
     /**

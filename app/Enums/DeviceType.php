@@ -28,15 +28,4 @@ enum DeviceType: string
             self::Desktop => 'desktop computer wallpaper in landscape/widescreen orientation',
         };
     }
-
-    /**
-     * Get the download filename prefix.
-     */
-    public function filenamePrefix(): string
-    {
-        return match ($this) {
-            self::Mobile => 'phone_wallpaper',
-            self::Desktop => 'desktop_wallpaper',
-        };
-    }
 }

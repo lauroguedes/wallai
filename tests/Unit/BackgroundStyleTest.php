@@ -2,7 +2,7 @@
 
 use App\Enums\BackgroundStyle;
 
-it('has exactly 18 cases', function () {
+it('has exactly 21 cases', function () {
     expect(BackgroundStyle::cases())->toHaveCount(21);
 });
 

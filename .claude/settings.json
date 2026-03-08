@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "laravel-simplifier@laravel": true
+  }
+}

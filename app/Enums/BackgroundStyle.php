@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use Illuminate\Support\Str;
+
 enum BackgroundStyle: string
 {
     case AbstractFluidArt = 'abstractFluidArt';
@@ -91,7 +93,7 @@ enum BackgroundStyle: string
      */
     public function slug(): string
     {
-        return strtolower(str_replace([' ', '_'], '', $this->title()));
+        return Str::slug($this->title(), '');
     }
 
     /**

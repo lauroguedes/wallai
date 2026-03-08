@@ -29,10 +29,3 @@ it('returns non-empty prompt context', function (DeviceType $type) {
     DeviceType::Mobile,
     DeviceType::Desktop,
 ]);
-
-it('returns correct filename prefix', function (DeviceType $type, string $prefix) {
-    expect($type->filenamePrefix())->toBe($prefix);
-})->with([
-    [DeviceType::Mobile, 'phone_wallpaper'],
-    [DeviceType::Desktop, 'desktop_wallpaper'],
-]);

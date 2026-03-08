@@ -60,6 +60,7 @@ new class extends Component {
     public function checkPendingJobs(WallpaperService $service): void
     {
         $stillPending = [];
+        $hasCompleted = false;
 
         foreach ($this->pendingJobs as $jobId) {
             $result = $service->getJobResult($jobId);
@@ -71,13 +72,17 @@ new class extends Component {
             }
 
             if ($result['status'] === 'completed') {
-                $this->wallpapers = $service->getSessionWallpapers(session()->getId(), $this->deviceType);
                 $this->activeWallpaper = $result['wallpaper'];
                 $this->showLoading = false;
                 $this->success('Your wallpaper is ready!');
+                $hasCompleted = true;
             } elseif ($result['status'] === 'failed') {
                 $this->error($result['message'] ?? 'Generation failed. Please try again.');
             }
+        }
+
+        if ($hasCompleted) {
+            $this->wallpapers = $service->getSessionWallpapers(session()->getId(), $this->deviceType);
         }
 
         $this->pendingJobs = $stillPending;
@@ -102,8 +107,7 @@ new class extends Component {
 
     public function deleteWallpaper(string $wallpaperId, WallpaperService $service): void
     {
-        $service->deleteWallpaper(session()->getId(), $wallpaperId, $this->deviceType);
-        $this->wallpapers = $service->getSessionWallpapers(session()->getId(), $this->deviceType);
+        $this->wallpapers = $service->deleteWallpaper(session()->getId(), $wallpaperId, $this->deviceType);
 
         if ($this->activeWallpaper && $this->activeWallpaper['id'] === $wallpaperId) {
             $this->activeWallpaper = ! empty($this->wallpapers) ? end($this->wallpapers) : null;
@@ -121,14 +125,21 @@ new class extends Component {
 
             $path = $wallpaper['path'];
             $extension = $wallpaper['extension'];
-            $content = Storage::disk('public')->get($path);
+
+            if (! Storage::disk('public')->exists($path)) {
+                $this->error('This wallpaper is no longer available.');
+
+                return null;
+            }
 
             $style = BackgroundStyle::from($wallpaper['style']);
             $hash = substr($wallpaper['id'], 0, 8);
             $downloadName = $style->slug().'_'.$this->deviceType.'_'.$hash.'.'.$extension;
 
-            return response()->streamDownload(function () use ($content) {
-                echo $content;
+            return response()->streamDownload(function () use ($path) {
+                $stream = Storage::disk('public')->readStream($path);
+                fpassthru($stream);
+                fclose($stream);
             }, $downloadName);
         } catch (\Throwable $e) {
             $exception = ServiceGeneratorException::downloadFailed($e, [

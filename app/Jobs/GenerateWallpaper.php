@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
+use App\Exceptions\ServiceGeneratorException;
 use App\Services\WallpaperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -49,9 +50,11 @@ class GenerateWallpaper implements ShouldQueue
         ], now()->addDay());
 
         $cacheKey = "wallpapers:{$this->sessionId}:{$this->deviceType->value}";
-        $existing = Cache::get($cacheKey, []);
-        $existing[] = $result;
-        Cache::put($cacheKey, $existing, now()->addDay());
+        Cache::lock("{$cacheKey}:lock", 10)->block(5, function () use ($cacheKey, $result) {
+            $existing = Cache::get($cacheKey, []);
+            $existing[] = $result;
+            Cache::put($cacheKey, $existing, now()->addDay());
+        });
 
         Cache::decrement("pending_jobs:{$this->sessionId}");
     }
@@ -69,7 +72,7 @@ class GenerateWallpaper implements ShouldQueue
 
         Cache::put("wallpaper_job:{$this->jobId}", [
             'status' => 'failed',
-            'message' => 'We could not generate your wallpaper. Please try again.',
+            'message' => ServiceGeneratorException::imageGeneration($exception ?? new \RuntimeException('Unknown error'))->getUserMessage(),
         ], now()->addDay());
 
         Cache::decrement("pending_jobs:{$this->sessionId}");
