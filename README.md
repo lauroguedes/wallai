@@ -2,7 +2,7 @@
 
 Generate unique, AI-powered wallpapers for mobile and desktop using 🍌Nano Banana 2 and the Laravel AI SDK. Choose from 18 curated styles, customize your prompt, and download high-resolution images ready to use.
 
-https://github.com/user-attachments/assets/47a2384d-e978-48b0-bf64-95930f1fb020
+https://github.com/user-attachments/assets/e3cb9a41-5b38-4c46-85cd-d66346173d51
 
 ## Features
 
