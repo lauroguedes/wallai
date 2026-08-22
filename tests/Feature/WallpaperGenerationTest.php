@@ -95,6 +95,25 @@ it('uses independent providers for prompt engineering and image generation', fun
     );
 });
 
+it('uses the selected models for prompt engineering and image generation', function () {
+    ImagePromptAgent::fake();
+    Image::fake([
+        base64_encode('fake-image-content'),
+    ]);
+
+    app(WallpaperService::class)->generateImage(
+        'a moonlit forest',
+        BackgroundStyle::PhotoRealist,
+        textProvider: GenerationProvider::OpenAI,
+        imageProvider: GenerationProvider::OpenAI,
+        textModel: 'gpt-5.4-pro',
+        imageModel: 'gpt-image-2',
+    );
+
+    ImagePromptAgent::assertPrompted(fn ($prompt) => $prompt->model === 'gpt-5.4-pro');
+    Image::assertGenerated(fn ($prompt) => $prompt->model === 'gpt-image-2');
+});
+
 it('generates a creative prompt using the agent', function () {
     PromptGenerator::fake([
         'A breathtaking aurora borealis over a snow-capped mountain range',

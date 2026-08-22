@@ -18,7 +18,9 @@ class AiProviderSetting extends Model
      */
     protected $fillable = [
         'text_provider',
+        'text_model',
         'image_provider',
+        'image_model',
         'openai_api_key',
         'gemini_api_key',
     ];

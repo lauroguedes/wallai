@@ -20,7 +20,9 @@ class AiProviderSettingFactory extends Factory
     {
         return [
             'text_provider' => GenerationProvider::Gemini,
+            'text_model' => 'gemini-3.7-flash',
             'image_provider' => GenerationProvider::Gemini,
+            'image_model' => 'gemini-3.1-flash-image-preview',
             'openai_api_key' => fake()->uuid(),
             'gemini_api_key' => fake()->uuid(),
         ];

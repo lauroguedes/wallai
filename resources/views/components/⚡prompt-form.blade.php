@@ -13,6 +13,8 @@ new class extends Component {
 
     public string $prompt = '';
 
+    public bool $promptWasGenerated = false;
+
     public string $selectedStyle = BackgroundStyle::NaturalLandscape->value;
 
     public string $deviceType = DeviceType::Mobile->value;
@@ -23,6 +25,11 @@ new class extends Component {
     {
         $this->selectedStyle = $style;
         $this->showDrawer = false;
+    }
+
+    public function updatedPrompt(): void
+    {
+        $this->promptWasGenerated = false;
     }
 
     public function generate(WallpaperService $service): void
@@ -56,7 +63,10 @@ new class extends Component {
         try {
             $style = BackgroundStyle::from($this->selectedStyle);
             $deviceType = DeviceType::from($this->deviceType);
-            $this->prompt = $service->generatePrompt($style, $deviceType, $this->prompt);
+            $context = $this->promptWasGenerated ? '' : $this->prompt;
+
+            $this->prompt = $service->generatePrompt($style, $deviceType, $context);
+            $this->promptWasGenerated = true;
         } catch (MissingAiCredentialsException $e) {
             $this->dispatch('open-provider-settings');
             $this->error($e->getUserMessage());

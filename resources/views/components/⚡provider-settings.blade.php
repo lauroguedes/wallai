@@ -2,6 +2,7 @@
 
 use App\Enums\GenerationProvider;
 use App\Services\AiProviderSettings;
+use App\Support\AiModelCatalog;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -15,7 +16,11 @@ new class extends Component {
 
     public string $textProvider = GenerationProvider::Gemini->value;
 
+    public string $textModel = 'gemini-3.7-flash';
+
     public string $imageProvider = GenerationProvider::Gemini->value;
+
+    public string $imageModel = 'gemini-3.1-flash-image-preview';
 
     public string $openAiApiKey = '';
 
@@ -34,7 +39,9 @@ new class extends Component {
         $current = $settings->current();
 
         $this->textProvider = $settings->textProvider($current)->value;
+        $this->textModel = $settings->textModel($current);
         $this->imageProvider = $settings->imageProvider($current)->value;
+        $this->imageModel = $settings->imageModel($current);
         $this->refreshKeyStatuses($settings);
     }
 
@@ -46,17 +53,68 @@ new class extends Component {
         return GenerationProvider::options();
     }
 
+    /**
+     * @return array<int, array{id: string, name: string}>
+     */
+    public function textModelOptions(): array
+    {
+        $provider = GenerationProvider::tryFrom($this->textProvider);
+
+        return $provider === null
+            ? []
+            : app(AiModelCatalog::class)->options($provider, AiModelCatalog::TEXT);
+    }
+
+    /**
+     * @return array<int, array{id: string, name: string}>
+     */
+    public function imageModelOptions(): array
+    {
+        $provider = GenerationProvider::tryFrom($this->imageProvider);
+
+        return $provider === null
+            ? []
+            : app(AiModelCatalog::class)->options($provider, AiModelCatalog::IMAGE);
+    }
+
+    public function updatedTextProvider(): void
+    {
+        $provider = GenerationProvider::tryFrom($this->textProvider);
+
+        if ($provider !== null) {
+            $this->textModel = app(AiModelCatalog::class)->default($provider, AiModelCatalog::TEXT);
+        }
+    }
+
+    public function updatedImageProvider(): void
+    {
+        $provider = GenerationProvider::tryFrom($this->imageProvider);
+
+        if ($provider !== null) {
+            $this->imageModel = app(AiModelCatalog::class)->default($provider, AiModelCatalog::IMAGE);
+        }
+    }
+
     #[On('open-provider-settings')]
     public function openDrawer(): void
     {
         $this->showDrawer = true;
     }
 
-    public function save(AiProviderSettings $settings): void
+    public function save(AiProviderSettings $settings, AiModelCatalog $models): void
     {
+        $selectedTextProvider = GenerationProvider::tryFrom($this->textProvider);
+        $selectedImageProvider = GenerationProvider::tryFrom($this->imageProvider);
+
         $validated = $this->validate([
             'textProvider' => ['required', Rule::enum(GenerationProvider::class)],
+            'textModel' => ['required', 'string', Rule::in(
+                $selectedTextProvider === null ? [] : $models->ids($selectedTextProvider, AiModelCatalog::TEXT),
+            )],
             'imageProvider' => ['required', Rule::enum(GenerationProvider::class)],
+            'imageModel' => ['required', 'string', Rule::in(
+                $selectedImageProvider === null ? [] : $models->ids($selectedImageProvider, AiModelCatalog::IMAGE),
+            )],
             'openAiApiKey' => ['nullable', 'string', 'max:512'],
             'geminiApiKey' => ['nullable', 'string', 'max:512'],
         ]);
@@ -85,7 +143,9 @@ new class extends Component {
 
         $settings->save(
             $textProvider,
+            $validated['textModel'],
             $imageProvider,
+            $validated['imageModel'],
             $validated['openAiApiKey'],
             $validated['geminiApiKey'],
         );
@@ -121,6 +181,14 @@ new class extends Component {
         $this->imageProvider = GenerationProvider::from(
             (string) config('wallpaper.ai.image_provider', GenerationProvider::Gemini->value),
         )->value;
+        $this->textModel = app(AiModelCatalog::class)->default(
+            GenerationProvider::from($this->textProvider),
+            AiModelCatalog::TEXT,
+        );
+        $this->imageModel = app(AiModelCatalog::class)->default(
+            GenerationProvider::from($this->imageProvider),
+            AiModelCatalog::IMAGE,
+        );
         $this->reset('openAiApiKey', 'geminiApiKey');
         $this->refreshKeyStatuses($settings);
         $this->success('Session provider settings removed.');
@@ -175,10 +243,24 @@ new class extends Component {
                         wire:model.live="textProvider" />
 
                     <x-select
+                        label="Text model"
+                        icon="lucide.cpu"
+                        :options="$this->textModelOptions()"
+                        wire:model="textModel"
+                        wire:key="text-model-{{ $textProvider }}" />
+
+                    <x-select
                         label="Image provider"
                         icon="lucide.image"
                         :options="$this->providerOptions()"
                         wire:model.live="imageProvider" />
+
+                    <x-select
+                        label="Image model"
+                        icon="lucide.scan"
+                        :options="$this->imageModelOptions()"
+                        wire:model="imageModel"
+                        wire:key="image-model-{{ $imageProvider }}" />
                 </section>
 
                 <div class="divider my-0">Credentials</div>

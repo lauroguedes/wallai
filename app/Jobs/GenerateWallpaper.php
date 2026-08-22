@@ -39,6 +39,8 @@ class GenerateWallpaper implements ShouldQueue
         public ?string $providerSettingsId = null,
         public GenerationProvider $textProvider = GenerationProvider::Gemini,
         public GenerationProvider $imageProvider = GenerationProvider::Gemini,
+        public string $textModel = 'gemini-3.7-flash',
+        public string $imageModel = 'gemini-3.1-flash-image-preview',
     ) {}
 
     /**
@@ -54,6 +56,8 @@ class GenerateWallpaper implements ShouldQueue
             $this->providerSettingsId,
             $this->textProvider,
             $this->imageProvider,
+            $this->textModel,
+            $this->imageModel,
         );
 
         Cache::put("wallpaper_job:{$this->jobId}", [

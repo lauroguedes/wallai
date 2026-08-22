@@ -106,6 +106,39 @@ it('updates prompt when generatePrompt is called', function () {
         ->assertSet('prompt', 'A stunning cosmic nebula with vibrant purple and blue hues');
 });
 
+it('does not reuse an ai generated prompt as context for the next style', function () {
+    PromptGenerator::fake([
+        'A watercolor forest with soft green washes',
+        'A crisp pixel-art space station',
+    ]);
+
+    Livewire::test('prompt-form')
+        ->set('selectedStyle', BackgroundStyle::BotanicalWatercolor->value)
+        ->call('generatePrompt')
+        ->assertSet('promptWasGenerated', true)
+        ->set('selectedStyle', BackgroundStyle::PixelArt->value)
+        ->call('generatePrompt')
+        ->assertSet('prompt', 'A crisp pixel-art space station');
+
+    PromptGenerator::assertPrompted(fn ($prompt) => $prompt->contains('Pixel Art')
+        && ! $prompt->contains('A watercolor forest with soft green washes'));
+});
+
+it('keeps manually edited text as prompt-generation context', function () {
+    PromptGenerator::fake([
+        'A generated prompt',
+        'A revised generated prompt',
+    ]);
+
+    Livewire::test('prompt-form')
+        ->call('generatePrompt')
+        ->set('prompt', 'Include a red fox')
+        ->assertSet('promptWasGenerated', false)
+        ->call('generatePrompt');
+
+    PromptGenerator::assertPrompted(fn ($prompt) => $prompt->contains('Include a red fox'));
+});
+
 it('passes device type to service on generatePrompt', function () {
     PromptGenerator::fake([
         'A sweeping panoramic mountain vista',

@@ -24,10 +24,34 @@ it('renders the provider settings drawer with independent capability selectors',
     Livewire::test('provider-settings')
         ->assertSet('showDrawer', false)
         ->assertSet('textProvider', GenerationProvider::Gemini->value)
+        ->assertSet('textModel', 'gemini-3.7-flash')
         ->assertSet('imageProvider', GenerationProvider::Gemini->value)
+        ->assertSet('imageModel', 'gemini-3.1-flash-image-preview')
         ->assertSee('Text provider')
+        ->assertSee('Text model')
         ->assertSee('Image provider')
+        ->assertSee('Image model')
         ->assertSee('Google Gemini');
+});
+
+it('loads compatible models when a provider changes', function () {
+    Livewire::test('provider-settings')
+        ->set('textProvider', GenerationProvider::OpenAI->value)
+        ->assertSet('textModel', 'gpt-5.4')
+        ->assertSee('GPT-5.4 Pro')
+        ->assertDontSee('Gemini 3.5 Flash-Lite')
+        ->set('imageProvider', GenerationProvider::OpenAI->value)
+        ->assertSet('imageModel', 'gpt-image-2')
+        ->assertSee('GPT Image 2');
+});
+
+it('rejects a model that is incompatible with its provider', function () {
+    Livewire::test('provider-settings')
+        ->set('textModel', 'gpt-5.4')
+        ->call('save')
+        ->assertHasErrors(['textModel']);
+
+    expect(AiProviderSetting::query()->exists())->toBeFalse();
 });
 
 it('opens the drawer when another component requests provider settings', function () {
@@ -39,6 +63,7 @@ it('opens the drawer when another component requests provider settings', functio
 it('requires a key for every selected provider', function () {
     Livewire::test('provider-settings')
         ->set('textProvider', GenerationProvider::OpenAI->value)
+        ->set('textModel', 'gpt-5.4-pro')
         ->set('imageProvider', GenerationProvider::Gemini->value)
         ->call('save')
         ->assertHasErrors(['openAiApiKey', 'geminiApiKey']);
@@ -52,6 +77,7 @@ it('encrypts keys and never renders them after saving', function () {
 
     Livewire::test('provider-settings')
         ->set('textProvider', GenerationProvider::OpenAI->value)
+        ->set('textModel', 'gpt-5.4-pro')
         ->set('imageProvider', GenerationProvider::Gemini->value)
         ->set('openAiApiKey', $openAiKey)
         ->set('geminiApiKey', $geminiKey)
@@ -66,7 +92,9 @@ it('encrypts keys and never renders them after saving', function () {
     $raw = DB::table('ai_provider_settings')->where('id', $settings->getKey())->first();
 
     expect($settings->text_provider)->toBe(GenerationProvider::OpenAI)
+        ->and($settings->text_model)->toBe('gpt-5.4-pro')
         ->and($settings->image_provider)->toBe(GenerationProvider::Gemini)
+        ->and($settings->image_model)->toBe('gemini-3.1-flash-image-preview')
         ->and($settings->openai_api_key)->toBe($openAiKey)
         ->and($settings->gemini_api_key)->toBe($geminiKey)
         ->and($raw->openai_api_key)->not->toBe($openAiKey)
@@ -122,6 +150,7 @@ it('snapshots provider choices in queued jobs without serializing plaintext keys
 
     Livewire::test('provider-settings')
         ->set('textProvider', GenerationProvider::OpenAI->value)
+        ->set('textModel', 'gpt-5.4-nano')
         ->set('imageProvider', GenerationProvider::Gemini->value)
         ->set('openAiApiKey', 'queue-openai-secret')
         ->set('geminiApiKey', 'queue-gemini-secret')
@@ -136,7 +165,9 @@ it('snapshots provider choices in queued jobs without serializing plaintext keys
 
     Queue::assertPushed(GenerateWallpaper::class, function (GenerateWallpaper $job): bool {
         return $job->textProvider === GenerationProvider::OpenAI
+            && $job->textModel === 'gpt-5.4-nano'
             && $job->imageProvider === GenerationProvider::Gemini
+            && $job->imageModel === 'gemini-3.1-flash-image-preview'
             && $job->providerSettingsId === AiProviderSetting::query()->sole()->getKey()
             && ! str_contains(serialize($job), 'queue-openai-secret')
             && ! str_contains(serialize($job), 'queue-gemini-secret');

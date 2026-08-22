@@ -39,6 +39,8 @@ class WallpaperService
         $settings = $this->providerSettings->current();
         $textProvider = $this->providerSettings->textProvider($settings);
         $imageProvider = $this->providerSettings->imageProvider($settings);
+        $textModel = $this->providerSettings->textModel($settings, $textProvider);
+        $imageModel = $this->providerSettings->imageModel($settings, $imageProvider);
 
         $this->providerSettings->ensureConfigured([$textProvider, $imageProvider], $settings);
 
@@ -53,6 +55,8 @@ class WallpaperService
             $settings?->getKey(),
             $textProvider,
             $imageProvider,
+            $textModel,
+            $imageModel,
         )
             ->onQueue("wallpapers-{$deviceType->value}");
 
@@ -138,11 +142,15 @@ class WallpaperService
         ?string $providerSettingsId = null,
         ?GenerationProvider $textProvider = null,
         ?GenerationProvider $imageProvider = null,
+        ?string $textModel = null,
+        ?string $imageModel = null,
     ): array {
         try {
             $settings = $this->providerSettings->find($providerSettingsId);
             $textProvider ??= $this->providerSettings->textProvider($settings);
             $imageProvider ??= $this->providerSettings->imageProvider($settings);
+            $textModel ??= $this->providerSettings->textModel($settings, $textProvider);
+            $imageModel ??= $this->providerSettings->imageModel($settings, $imageProvider);
 
             $structuredResponse = $this->runtimeProvider->using(
                 $textProvider,
@@ -150,6 +158,7 @@ class WallpaperService
                 fn (string $provider) => (new ImagePromptAgent($style, $deviceType))->prompt(
                     $prompt,
                     provider: $provider,
+                    model: $textModel,
                 ),
             );
             $engineeredPrompt = $this->flattenStructuredPrompt($structuredResponse->toArray());
@@ -162,7 +171,7 @@ class WallpaperService
                     ->when($deviceType === DeviceType::Desktop, fn ($image) => $image->landscape())
                     ->quality('high')
                     ->timeout(120)
-                    ->generate(provider: $provider),
+                    ->generate(provider: $provider, model: $imageModel),
             );
 
             $image = $response->firstImage();
@@ -200,6 +209,7 @@ class WallpaperService
         try {
             $settings = $this->providerSettings->current();
             $textProvider = $this->providerSettings->textProvider($settings);
+            $textModel = $this->providerSettings->textModel($settings, $textProvider);
             $this->providerSettings->ensureConfigured([$textProvider], $settings);
 
             $deviceContext = $deviceType->promptContext();
@@ -214,7 +224,11 @@ class WallpaperService
             $response = $this->runtimeProvider->using(
                 $textProvider,
                 $settings,
-                fn (string $provider) => (new PromptGenerator)->prompt($message, provider: $provider),
+                fn (string $provider) => (new PromptGenerator)->prompt(
+                    $message,
+                    provider: $provider,
+                    model: $textModel,
+                ),
             );
 
             return trim($response->text);

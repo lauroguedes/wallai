@@ -5,10 +5,13 @@ namespace App\Services;
 use App\Enums\GenerationProvider;
 use App\Exceptions\MissingAiCredentialsException;
 use App\Models\AiProviderSetting;
+use App\Support\AiModelCatalog;
 
 class AiProviderSettings
 {
     private const SESSION_KEY = 'ai_provider_settings_id';
+
+    public function __construct(private AiModelCatalog $models) {}
 
     public function current(): ?AiProviderSetting
     {
@@ -24,14 +27,18 @@ class AiProviderSettings
 
     public function save(
         GenerationProvider $textProvider,
+        string $textModel,
         GenerationProvider $imageProvider,
+        string $imageModel,
         ?string $openAiApiKey = null,
         ?string $geminiApiKey = null,
     ): AiProviderSetting {
         $settings = $this->current() ?? new AiProviderSetting;
 
         $settings->text_provider = $textProvider;
+        $settings->text_model = $this->models->resolve($textProvider, AiModelCatalog::TEXT, $textModel);
         $settings->image_provider = $imageProvider;
+        $settings->image_model = $this->models->resolve($imageProvider, AiModelCatalog::IMAGE, $imageModel);
 
         if (filled($openAiApiKey)) {
             $settings->openai_api_key = trim($openAiApiKey);
@@ -78,6 +85,20 @@ class AiProviderSettings
     {
         return $settings?->image_provider
             ?? GenerationProvider::from((string) config('wallpaper.ai.image_provider', GenerationProvider::Gemini->value));
+    }
+
+    public function textModel(?AiProviderSetting $settings = null, ?GenerationProvider $provider = null): string
+    {
+        $provider ??= $this->textProvider($settings);
+
+        return $this->models->resolve($provider, AiModelCatalog::TEXT, $settings?->text_model);
+    }
+
+    public function imageModel(?AiProviderSetting $settings = null, ?GenerationProvider $provider = null): string
+    {
+        $provider ??= $this->imageProvider($settings);
+
+        return $this->models->resolve($provider, AiModelCatalog::IMAGE, $settings?->image_model);
     }
 
     public function effectiveKey(GenerationProvider $provider, ?AiProviderSetting $settings = null): ?string
