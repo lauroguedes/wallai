@@ -6,8 +6,7 @@
 
         <title>{{ config('app.name', 'Wallai - Create your own phone wallpaper') }}</title>
 
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @vite('resources/css/app.css')
     </head>
     <body class="min-h-screen antialiased content-center">
         {{ $slot }}
