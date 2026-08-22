@@ -2,13 +2,11 @@
 
 namespace App\Ai\Agents;
 
-use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Promptable;
 use Stringable;
 
-#[Provider(['gemini', 'openai'])]
 #[Timeout(120)]
 class PromptGenerator implements Agent
 {

@@ -1,9 +1,12 @@
 <?php
 
 use App\Services\WallpaperService;
+use Tests\TestCase;
+
+uses(TestCase::class);
 
 test('getExtension returns correct extension for known mime types', function (string $mime, string $expected) {
-    $service = new WallpaperService;
+    $service = app(WallpaperService::class);
 
     $reflection = new ReflectionMethod($service, 'getExtension');
 
@@ -19,7 +22,7 @@ test('getExtension returns correct extension for known mime types', function (st
 ]);
 
 test('getExtension returns png for null mime', function () {
-    $service = new WallpaperService;
+    $service = app(WallpaperService::class);
 
     $reflection = new ReflectionMethod($service, 'getExtension');
 

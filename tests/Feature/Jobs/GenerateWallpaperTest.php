@@ -4,12 +4,17 @@ use App\Ai\Agents\ImagePromptAgent;
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
 use App\Jobs\GenerateWallpaper;
+use App\Services\WallpaperService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Image;
 
 beforeEach(function () {
     Storage::fake('public');
+    config([
+        'ai.providers.openai.key' => 'test-openai-key',
+        'ai.providers.gemini.key' => 'test-gemini-key',
+    ]);
     ImagePromptAgent::fake();
     Image::fake([
         base64_encode('fake-image-content'),
@@ -22,7 +27,7 @@ it('stores completed result in cache on success', function () {
     Cache::put("pending_jobs:{$sessionId}", 1);
 
     $job = new GenerateWallpaper($sessionId, $jobId, 'a sunset', BackgroundStyle::PhotoRealist, DeviceType::Mobile);
-    $job->handle(app(\App\Services\WallpaperService::class));
+    $job->handle(app(WallpaperService::class));
 
     $result = Cache::get("wallpaper_job:{$jobId}");
 
@@ -38,7 +43,7 @@ it('stores wallpaper under session directory', function () {
     Cache::put("pending_jobs:{$sessionId}", 1);
 
     $job = new GenerateWallpaper($sessionId, $jobId, 'a mountain', BackgroundStyle::NaturalLandscape, DeviceType::Mobile);
-    $job->handle(app(\App\Services\WallpaperService::class));
+    $job->handle(app(WallpaperService::class));
 
     $result = Cache::get("wallpaper_job:{$jobId}");
     $path = $result['wallpaper']['path'];
@@ -56,7 +61,7 @@ it('appends wallpaper to session registry with device type', function () {
     ]);
 
     $job = new GenerateWallpaper($sessionId, $jobId, 'a nebula', BackgroundStyle::AbstractFluidArt, DeviceType::Mobile);
-    $job->handle(app(\App\Services\WallpaperService::class));
+    $job->handle(app(WallpaperService::class));
 
     $wallpapers = Cache::get("wallpapers:{$sessionId}:mobile");
 
@@ -70,7 +75,7 @@ it('decrements pending job count on success', function () {
     Cache::put("pending_jobs:{$sessionId}", 2);
 
     $job = new GenerateWallpaper($sessionId, $jobId, 'a galaxy', BackgroundStyle::Surrealism, DeviceType::Desktop);
-    $job->handle(app(\App\Services\WallpaperService::class));
+    $job->handle(app(WallpaperService::class));
 
     expect((int) Cache::get("pending_jobs:{$sessionId}"))->toBe(1);
 });
@@ -81,7 +86,7 @@ it('stores failed status and decrements pending count on failure', function () {
     Cache::put("pending_jobs:{$sessionId}", 1);
 
     $job = new GenerateWallpaper($sessionId, $jobId, 'a sunset', BackgroundStyle::PhotoRealist, DeviceType::Mobile);
-    $job->failed(new \RuntimeException('API error'));
+    $job->failed(new RuntimeException('API error'));
 
     $result = Cache::get("wallpaper_job:{$jobId}");
 

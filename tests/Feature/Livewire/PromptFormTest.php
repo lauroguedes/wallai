@@ -12,6 +12,10 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     Storage::fake('public');
+    config([
+        'ai.providers.openai.key' => 'test-openai-key',
+        'ai.providers.gemini.key' => 'test-gemini-key',
+    ]);
 });
 
 it('renders with default state', function () {
@@ -75,6 +79,22 @@ it('blocks generation when max pending jobs reached', function () {
     Queue::assertNothingPushed();
 });
 
+it('opens provider settings instead of dispatching when credentials are missing', function () {
+    Queue::fake();
+    config([
+        'ai.providers.openai.key' => null,
+        'ai.providers.gemini.key' => null,
+    ]);
+
+    Livewire::test('prompt-form')
+        ->set('prompt', 'test prompt')
+        ->call('generate')
+        ->assertDispatched('open-provider-settings')
+        ->assertNotDispatched('wallpaper-job-dispatched');
+
+    Queue::assertNothingPushed();
+});
+
 it('updates prompt when generatePrompt is called', function () {
     PromptGenerator::fake([
         'A stunning cosmic nebula with vibrant purple and blue hues',
@@ -100,7 +120,7 @@ it('passes device type to service on generatePrompt', function () {
 
 it('shows friendly error toast when prompt generation fails', function () {
     PromptGenerator::fake([
-        fn () => throw new \RuntimeException('Prompt generation failed'),
+        fn () => throw new RuntimeException('Prompt generation failed'),
     ]);
 
     Livewire::test('prompt-form')

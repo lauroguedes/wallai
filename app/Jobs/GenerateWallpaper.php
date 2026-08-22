@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
+use App\Enums\GenerationProvider;
 use App\Exceptions\ServiceGeneratorException;
 use App\Services\WallpaperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -35,6 +36,9 @@ class GenerateWallpaper implements ShouldQueue
         public string $prompt,
         public BackgroundStyle $style,
         public DeviceType $deviceType,
+        public ?string $providerSettingsId = null,
+        public GenerationProvider $textProvider = GenerationProvider::Gemini,
+        public GenerationProvider $imageProvider = GenerationProvider::Gemini,
     ) {}
 
     /**
@@ -42,7 +46,15 @@ class GenerateWallpaper implements ShouldQueue
      */
     public function handle(WallpaperService $service): void
     {
-        $result = $service->generateImage($this->prompt, $this->style, $this->deviceType, $this->sessionId);
+        $result = $service->generateImage(
+            $this->prompt,
+            $this->style,
+            $this->deviceType,
+            $this->sessionId,
+            $this->providerSettingsId,
+            $this->textProvider,
+            $this->imageProvider,
+        );
 
         Cache::put("wallpaper_job:{$this->jobId}", [
             'status' => 'completed',

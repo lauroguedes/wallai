@@ -4,6 +4,7 @@ use App\Ai\Agents\ImagePromptAgent;
 use App\Ai\Agents\PromptGenerator;
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
+use App\Enums\GenerationProvider;
 use App\Exceptions\ServiceGeneratorException;
 use App\Jobs\GenerateWallpaper;
 use App\Services\WallpaperService;
@@ -14,6 +15,10 @@ use Laravel\Ai\Image;
 
 beforeEach(function () {
     Storage::fake('public');
+    config([
+        'ai.providers.openai.key' => 'test-openai-key',
+        'ai.providers.gemini.key' => 'test-gemini-key',
+    ]);
 });
 
 it('generates an image and stores it to disk', function () {
@@ -28,6 +33,7 @@ it('generates an image and stores it to disk', function () {
     expect($result)
         ->toHaveKeys(['id', 'url', 'path', 'extension', 'style'])
         ->and($result['path'])->toStartWith('wallpapers/')
+        ->and($result['url'])->toBe('/storage/'.$result['path'])
         ->and($result['extension'])->toBeString()
         ->and($result['style'])->toBe('photoRealist');
 
@@ -67,6 +73,28 @@ it('uses ImagePromptAgent to engineer the image prompt', function () {
     Image::assertGenerated(fn ($prompt) => strlen($prompt->prompt) > 0);
 });
 
+it('uses independent providers for prompt engineering and image generation', function () {
+    ImagePromptAgent::fake();
+    Image::fake([
+        base64_encode('fake-image-content'),
+    ]);
+
+    app(WallpaperService::class)->generateImage(
+        'a moonlit forest',
+        BackgroundStyle::PhotoRealist,
+        DeviceType::Mobile,
+        textProvider: GenerationProvider::OpenAI,
+        imageProvider: GenerationProvider::Gemini,
+    );
+
+    ImagePromptAgent::assertPrompted(
+        fn ($prompt) => $prompt->provider()->driver() === GenerationProvider::OpenAI->value,
+    );
+    Image::assertGenerated(
+        fn ($prompt) => $prompt->provider->driver() === GenerationProvider::Gemini->value,
+    );
+});
+
 it('generates a creative prompt using the agent', function () {
     PromptGenerator::fake([
         'A breathtaking aurora borealis over a snow-capped mountain range',
@@ -97,9 +125,22 @@ it('generates a prompt with desktop context', function () {
     PromptGenerator::assertPrompted(fn ($prompt) => $prompt->contains('desktop'));
 });
 
+it('uses the configured text provider for creative prompt generation', function () {
+    config(['wallpaper.ai.text_provider' => GenerationProvider::OpenAI->value]);
+    PromptGenerator::fake([
+        'A quiet forest beneath a silver moon',
+    ]);
+
+    app(WallpaperService::class)->generatePrompt(BackgroundStyle::NaturalLandscape);
+
+    PromptGenerator::assertPrompted(
+        fn ($prompt) => $prompt->provider()->driver() === GenerationProvider::OpenAI->value,
+    );
+});
+
 it('throws ServiceGeneratorException with image_generation operation on failure', function () {
     ImagePromptAgent::fake([
-        fn () => throw new \RuntimeException('API error'),
+        fn () => throw new RuntimeException('API error'),
     ]);
 
     $service = app(WallpaperService::class);
@@ -111,13 +152,13 @@ it('throws ServiceGeneratorException with image_generation operation on failure'
         expect($e)
             ->getOperation()->toBe('image_generation')
             ->getUserMessage()->toBe('We could not generate your wallpaper. Please try again.')
-            ->getPrevious()->toBeInstanceOf(\RuntimeException::class);
+            ->getPrevious()->toBeInstanceOf(RuntimeException::class);
     }
 });
 
 it('throws ServiceGeneratorException with prompt_generation operation on failure', function () {
     PromptGenerator::fake([
-        fn () => throw new \RuntimeException('API error'),
+        fn () => throw new RuntimeException('API error'),
     ]);
 
     $service = app(WallpaperService::class);
@@ -129,7 +170,7 @@ it('throws ServiceGeneratorException with prompt_generation operation on failure
         expect($e)
             ->getOperation()->toBe('prompt_generation')
             ->getUserMessage()->toBe('We could not generate a prompt. Please try again.')
-            ->getPrevious()->toBeInstanceOf(\RuntimeException::class);
+            ->getPrevious()->toBeInstanceOf(RuntimeException::class);
     }
 });
 
@@ -303,6 +344,18 @@ it('returns session wallpapers from cache', function () {
     expect($service->getSessionWallpapers('session-123', 'mobile'))->toHaveCount(2);
 });
 
+it('normalizes absolute local URLs already stored in the session cache', function () {
+    Cache::put('wallpapers:session-123:mobile', [[
+        'id' => 'a.png',
+        'url' => 'https://wallai.test/storage/wallpapers/session-123/a.png',
+        'path' => 'wallpapers/session-123/a.png',
+        'extension' => 'png',
+    ]], now()->addDay());
+
+    expect(app(WallpaperService::class)->getSessionWallpapers('session-123', 'mobile')[0]['url'])
+        ->toBe('/storage/wallpapers/session-123/a.png');
+});
+
 it('returns empty array when no session wallpapers exist', function () {
     $service = app(WallpaperService::class);
 
@@ -335,6 +388,21 @@ it('returns job result from cache', function () {
 
     expect($service->getJobResult('job-123'))
         ->toBe(['status' => 'completed', 'wallpaper' => ['id' => 'test.png']]);
+});
+
+it('normalizes absolute local URLs already stored in completed job results', function () {
+    Cache::put('wallpaper_job:job-absolute-url', [
+        'status' => 'completed',
+        'wallpaper' => [
+            'id' => 'test.png',
+            'url' => 'https://wallai.test/storage/wallpapers/test.png',
+            'path' => 'wallpapers/test.png',
+            'extension' => 'png',
+        ],
+    ], now()->addDay());
+
+    expect(app(WallpaperService::class)->getJobResult('job-absolute-url')['wallpaper']['url'])
+        ->toBe('/storage/wallpapers/test.png');
 });
 
 it('returns null for nonexistent job result', function () {

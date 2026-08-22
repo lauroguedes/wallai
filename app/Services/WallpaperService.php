@@ -6,6 +6,8 @@ use App\Ai\Agents\ImagePromptAgent;
 use App\Ai\Agents\PromptGenerator;
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
+use App\Enums\GenerationProvider;
+use App\Exceptions\MissingAiCredentialsException;
 use App\Exceptions\ServiceGeneratorException;
 use App\Jobs\GenerateWallpaper;
 use Illuminate\Support\Facades\Cache;
@@ -15,6 +17,11 @@ use Laravel\Ai\Image;
 
 class WallpaperService
 {
+    public function __construct(
+        private AiProviderSettings $providerSettings,
+        private RuntimeAiProvider $runtimeProvider,
+    ) {}
+
     /**
      * Maximum number of concurrent pending jobs per session.
      */
@@ -29,10 +36,24 @@ class WallpaperService
     public function dispatchGeneration(string $sessionId, string $prompt, BackgroundStyle $style, DeviceType $deviceType): string
     {
         $jobId = (string) Str::ulid();
+        $settings = $this->providerSettings->current();
+        $textProvider = $this->providerSettings->textProvider($settings);
+        $imageProvider = $this->providerSettings->imageProvider($settings);
+
+        $this->providerSettings->ensureConfigured([$textProvider, $imageProvider], $settings);
 
         Cache::put("pending_jobs:{$sessionId}", $this->getPendingJobCount($sessionId) + 1, now()->addDay());
 
-        GenerateWallpaper::dispatch($sessionId, $jobId, $prompt, $style, $deviceType)
+        GenerateWallpaper::dispatch(
+            $sessionId,
+            $jobId,
+            $prompt,
+            $style,
+            $deviceType,
+            $settings?->getKey(),
+            $textProvider,
+            $imageProvider,
+        )
             ->onQueue("wallpapers-{$deviceType->value}");
 
         return $jobId;
@@ -53,7 +74,17 @@ class WallpaperService
      */
     public function getJobResult(string $jobId): ?array
     {
-        return Cache::get("wallpaper_job:{$jobId}");
+        $result = Cache::get("wallpaper_job:{$jobId}");
+
+        if (! is_array($result)) {
+            return null;
+        }
+
+        if (isset($result['wallpaper']) && is_array($result['wallpaper'])) {
+            $result['wallpaper'] = $this->normalizeWallpaperUrl($result['wallpaper']);
+        }
+
+        return $result;
     }
 
     /**
@@ -64,8 +95,12 @@ class WallpaperService
     public function getSessionWallpapers(string $sessionId, DeviceType|string $deviceType): array
     {
         $deviceValue = $deviceType instanceof DeviceType ? $deviceType->value : $deviceType;
+        $wallpapers = Cache::get("wallpapers:{$sessionId}:{$deviceValue}", []);
 
-        return Cache::get("wallpapers:{$sessionId}:{$deviceValue}", []);
+        return array_map(
+            fn (array $wallpaper): array => $this->normalizeWallpaperUrl($wallpaper),
+            $wallpapers,
+        );
     }
 
     /**
@@ -95,18 +130,40 @@ class WallpaperService
      *
      * @throws ServiceGeneratorException
      */
-    public function generateImage(string $prompt, BackgroundStyle $style, DeviceType $deviceType = DeviceType::Mobile, ?string $sessionId = null): array
-    {
+    public function generateImage(
+        string $prompt,
+        BackgroundStyle $style,
+        DeviceType $deviceType = DeviceType::Mobile,
+        ?string $sessionId = null,
+        ?string $providerSettingsId = null,
+        ?GenerationProvider $textProvider = null,
+        ?GenerationProvider $imageProvider = null,
+    ): array {
         try {
-            $structuredResponse = new ImagePromptAgent($style, $deviceType)->prompt($prompt);
+            $settings = $this->providerSettings->find($providerSettingsId);
+            $textProvider ??= $this->providerSettings->textProvider($settings);
+            $imageProvider ??= $this->providerSettings->imageProvider($settings);
+
+            $structuredResponse = $this->runtimeProvider->using(
+                $textProvider,
+                $settings,
+                fn (string $provider) => (new ImagePromptAgent($style, $deviceType))->prompt(
+                    $prompt,
+                    provider: $provider,
+                ),
+            );
             $engineeredPrompt = $this->flattenStructuredPrompt($structuredResponse->toArray());
 
-            $response = Image::of($engineeredPrompt)
-                ->when($deviceType === DeviceType::Mobile, fn ($image) => $image->portrait())
-                ->when($deviceType === DeviceType::Desktop, fn ($image) => $image->landscape())
-                ->quality('high')
-                ->timeout(120)
-                ->generate();
+            $response = $this->runtimeProvider->using(
+                $imageProvider,
+                $settings,
+                fn (string $provider) => Image::of($engineeredPrompt)
+                    ->when($deviceType === DeviceType::Mobile, fn ($image) => $image->portrait())
+                    ->when($deviceType === DeviceType::Desktop, fn ($image) => $image->landscape())
+                    ->quality('high')
+                    ->timeout(120)
+                    ->generate(provider: $provider),
+            );
 
             $image = $response->firstImage();
             $extension = $this->getExtension($image->mime);
@@ -119,7 +176,7 @@ class WallpaperService
 
             return [
                 'id' => $filename,
-                'url' => Storage::disk('public')->url($path),
+                'url' => $this->publicWallpaperUrl($path),
                 'path' => $path,
                 'extension' => $extension,
                 'style' => $style->value,
@@ -141,6 +198,10 @@ class WallpaperService
     public function generatePrompt(BackgroundStyle $style, DeviceType $deviceType = DeviceType::Mobile, string $userPrompt = ''): string
     {
         try {
+            $settings = $this->providerSettings->current();
+            $textProvider = $this->providerSettings->textProvider($settings);
+            $this->providerSettings->ensureConfigured([$textProvider], $settings);
+
             $deviceContext = $deviceType->promptContext();
 
             $message = "Generate a creative image prompt for a {$style->title()} style {$deviceContext}. "
@@ -150,9 +211,15 @@ class WallpaperService
                 $message .= " Use this text as context and inspiration: {$userPrompt}";
             }
 
-            $response = (new PromptGenerator)->prompt($message);
+            $response = $this->runtimeProvider->using(
+                $textProvider,
+                $settings,
+                fn (string $provider) => (new PromptGenerator)->prompt($message, provider: $provider),
+            );
 
             return trim($response->text);
+        } catch (MissingAiCredentialsException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             throw ServiceGeneratorException::promptGeneration($e, [
                 'style' => $style->value,
@@ -247,5 +314,39 @@ class WallpaperService
             'image/webp' => 'webp',
             default => 'png',
         };
+    }
+
+    /**
+     * Keep local wallpaper URLs on the browser's current origin.
+     */
+    private function publicWallpaperUrl(string $path): string
+    {
+        if (config('filesystems.disks.public.driver') !== 'local') {
+            return Storage::disk('public')->url($path);
+        }
+
+        $configuredUrl = (string) config('filesystems.disks.public.url', '/storage');
+        $basePath = parse_url($configuredUrl, PHP_URL_PATH) ?: '/storage';
+
+        return '/'.trim($basePath, '/').'/'.ltrim($path, '/');
+    }
+
+    /**
+     * Repair absolute local URLs already stored by long-running queue workers.
+     *
+     * @param  array<string, mixed>  $wallpaper
+     * @return array<string, mixed>
+     */
+    private function normalizeWallpaperUrl(array $wallpaper): array
+    {
+        if (
+            isset($wallpaper['path'])
+            && is_string($wallpaper['path'])
+            && (! isset($wallpaper['url']) || ! str_starts_with((string) $wallpaper['url'], '/'))
+        ) {
+            $wallpaper['url'] = $this->publicWallpaperUrl($wallpaper['path']);
+        }
+
+        return $wallpaper;
     }
 }

@@ -8,6 +8,7 @@ new class extends Component {
 
 <div class="flex flex-col justify-center items-center">
     <x-toast />
+    <livewire:provider-settings />
     <div class="drawer lg:drawer-open h-screen">
         <input id="settings-drawer" type="checkbox" class="drawer-toggle" />
 

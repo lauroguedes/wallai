@@ -2,6 +2,7 @@
 
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
+use App\Exceptions\MissingAiCredentialsException;
 use App\Exceptions\ServiceGeneratorException;
 use App\Services\WallpaperService;
 use Livewire\Component;
@@ -37,7 +38,14 @@ new class extends Component {
         $style = BackgroundStyle::from($this->selectedStyle);
         $deviceType = DeviceType::from($this->deviceType);
 
-        $jobId = $service->dispatchGeneration($sessionId, $this->prompt, $style, $deviceType);
+        try {
+            $jobId = $service->dispatchGeneration($sessionId, $this->prompt, $style, $deviceType);
+        } catch (MissingAiCredentialsException $e) {
+            $this->dispatch('open-provider-settings');
+            $this->error($e->getUserMessage());
+
+            return;
+        }
 
         $this->dispatch('wallpaper-job-dispatched', jobId: $jobId, deviceType: $this->deviceType);
         $this->success('Your wallpaper is being generated!');
@@ -49,6 +57,9 @@ new class extends Component {
             $style = BackgroundStyle::from($this->selectedStyle);
             $deviceType = DeviceType::from($this->deviceType);
             $this->prompt = $service->generatePrompt($style, $deviceType, $this->prompt);
+        } catch (MissingAiCredentialsException $e) {
+            $this->dispatch('open-provider-settings');
+            $this->error($e->getUserMessage());
         } catch (ServiceGeneratorException $e) {
             report($e);
             $this->error($e->getUserMessage());
