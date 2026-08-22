@@ -1,20 +1,20 @@
 {
     "agents": [
-        "claude_code"
+        "claude_code",
+        "codex"
     ],
+    "cloud": false,
     "guidelines": true,
-    "herd_mcp": false,
     "mcp": true,
-    "nightwatch_mcp": false,
-    "packages": [
-        "laravel/ai"
-    ],
+    "nightwatch": false,
     "sail": false,
     "skills": [
+        "infer-conventions",
+        "ai-sdk-development",
+        "laravel-best-practices",
+        "configuring-horizon",
         "livewire-development",
-        "volt-development",
         "pest-testing",
-        "tailwindcss-development",
-        "developing-with-ai-sdk"
+        "tailwindcss-development"
     ]
 }
