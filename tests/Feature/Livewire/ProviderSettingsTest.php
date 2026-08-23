@@ -33,18 +33,36 @@ it('renders the provider settings drawer with independent capability selectors',
         ->assertSee('Text model')
         ->assertSee('Image provider')
         ->assertSee('Image model')
+        ->assertSee('Ollama')
+        ->assertSeeHtml('grid grid-cols-1 gap-4 sm:grid-cols-2')
         ->assertSee('Google Gemini');
 });
 
+it('only offers providers that support each generation capability', function () {
+    $component = Livewire::test('provider-settings');
+
+    expect(collect($component->instance()->textProviderOptions())->pluck('id')->all())
+        ->toContain(GenerationProvider::OpenAI->value, GenerationProvider::Gemini->value, GenerationProvider::Ollama->value)
+        ->and(collect($component->instance()->imageProviderOptions())->pluck('id')->all())
+        ->toContain(GenerationProvider::OpenAI->value, GenerationProvider::Gemini->value)
+        ->not->toContain(GenerationProvider::Ollama->value);
+});
+
 it('loads compatible models when a provider changes', function () {
-    Livewire::test('provider-settings')
+    $component = Livewire::test('provider-settings')
         ->set('textProvider', GenerationProvider::OpenAI->value)
-        ->assertSet('textModel', 'gpt-5.4')
-        ->assertSee('GPT-5.4 Pro')
+        ->assertSet('textModel', GenerationProvider::OpenAI->defaultModel(GenerationProvider::TEXT))
+        ->assertSee('GPT-5.6 Sol')
+        ->assertSee('GPT-5.6 Terra')
+        ->assertSee('GPT-5.6 Luna')
+        ->assertDontSee('GPT-5.4 Pro')
         ->assertDontSee('Gemini 3.5 Flash-Lite')
         ->set('imageProvider', GenerationProvider::OpenAI->value)
         ->assertSet('imageModel', 'gpt-image-2')
         ->assertSee('GPT Image 2');
+
+    expect(collect($component->instance()->textModelOptions())->pluck('id')->all())
+        ->toBe(array_column(GenerationProvider::OpenAI->modelOptions(GenerationProvider::TEXT), 'id'));
 });
 
 it('rejects a model that is incompatible with its provider', function () {
@@ -52,6 +70,48 @@ it('rejects a model that is incompatible with its provider', function () {
         ->set('textModel', 'gpt-5.4')
         ->call('save')
         ->assertHasErrors(['textModel']);
+
+    expect(AiProviderSetting::query()->exists())->toBeFalse();
+});
+
+it('saves an Ollama URL and custom local text model without an API key', function () {
+    config(['ai.providers.gemini.key' => 'server-gemini-key']);
+
+    Livewire::test('provider-settings')
+        ->set('textProvider', GenerationProvider::Ollama->value)
+        ->assertSet('textModel', 'llama3.1:8b')
+        ->assertSee('Ollama connection')
+        ->set('textModel', 'qwen3:14b')
+        ->set('ollamaUrl', 'http://host.docker.internal:11434/')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $settings = AiProviderSetting::query()->sole();
+
+    expect($settings->text_provider)->toBe(GenerationProvider::Ollama)
+        ->and($settings->text_model)->toBe('qwen3:14b')
+        ->and($settings->ollama_url)->toBe('http://host.docker.internal:11434')
+        ->and($settings->openai_api_key)->toBeNull()
+        ->and($settings->gemini_api_key)->toBeNull();
+});
+
+it('validates the Ollama server URL', function () {
+    config(['ai.providers.gemini.key' => 'server-gemini-key']);
+
+    Livewire::test('provider-settings')
+        ->set('textProvider', GenerationProvider::Ollama->value)
+        ->set('ollamaUrl', 'not-a-url')
+        ->call('save')
+        ->assertHasErrors(['ollamaUrl']);
+
+    expect(AiProviderSetting::query()->exists())->toBeFalse();
+});
+
+it('rejects Ollama as an image provider', function () {
+    Livewire::test('provider-settings')
+        ->set('imageProvider', GenerationProvider::Ollama->value)
+        ->call('save')
+        ->assertHasErrors(['imageProvider', 'imageModel']);
 
     expect(AiProviderSetting::query()->exists())->toBeFalse();
 });
@@ -65,7 +125,7 @@ it('opens the drawer when another component requests provider settings', functio
 it('requires a key for every selected provider', function () {
     Livewire::test('provider-settings')
         ->set('textProvider', GenerationProvider::OpenAI->value)
-        ->set('textModel', 'gpt-5.4-pro')
+        ->set('textModel', 'gpt-5.6-sol')
         ->set('imageProvider', GenerationProvider::Gemini->value)
         ->call('save')
         ->assertHasErrors(['openAiApiKey', 'geminiApiKey']);
@@ -79,7 +139,7 @@ it('encrypts keys and never renders them after saving', function () {
 
     Livewire::test('provider-settings')
         ->set('textProvider', GenerationProvider::OpenAI->value)
-        ->set('textModel', 'gpt-5.4-pro')
+        ->set('textModel', 'gpt-5.6-sol')
         ->set('imageProvider', GenerationProvider::Gemini->value)
         ->set('openAiApiKey', $openAiKey)
         ->set('geminiApiKey', $geminiKey)
@@ -94,7 +154,7 @@ it('encrypts keys and never renders them after saving', function () {
     $raw = DB::table('ai_provider_settings')->where('id', $settings->getKey())->first();
 
     expect($settings->text_provider)->toBe(GenerationProvider::OpenAI)
-        ->and($settings->text_model)->toBe('gpt-5.4-pro')
+        ->and($settings->text_model)->toBe('gpt-5.6-sol')
         ->and($settings->image_provider)->toBe(GenerationProvider::Gemini)
         ->and($settings->image_model)->toBe('gemini-3.1-flash-image-preview')
         ->and($settings->openai_api_key)->toBe($openAiKey)
@@ -187,7 +247,7 @@ it('snapshots provider choices in queued jobs without serializing plaintext keys
 
     Livewire::test('provider-settings')
         ->set('textProvider', GenerationProvider::OpenAI->value)
-        ->set('textModel', 'gpt-5.4-nano')
+        ->set('textModel', 'gpt-5.6-luna')
         ->set('imageProvider', GenerationProvider::Gemini->value)
         ->set('openAiApiKey', 'queue-openai-secret')
         ->set('geminiApiKey', 'queue-gemini-secret')
@@ -202,7 +262,7 @@ it('snapshots provider choices in queued jobs without serializing plaintext keys
 
     Queue::assertPushed(GenerateWallpaper::class, function (GenerateWallpaper $job): bool {
         return $job->textProvider === GenerationProvider::OpenAI
-            && $job->textModel === 'gpt-5.4-nano'
+            && $job->textModel === 'gpt-5.6-luna'
             && $job->imageProvider === GenerationProvider::Gemini
             && $job->imageModel === 'gemini-3.1-flash-image-preview'
             && $job->providerSettingsId === AiProviderSetting::query()->sole()->getKey()

@@ -19,15 +19,17 @@ new class extends Component {
 
     public string $textProvider = GenerationProvider::Gemini->value;
 
-    public string $textModel = 'gemini-3.7-flash';
+    public string $textModel = '';
 
     public string $imageProvider = GenerationProvider::Gemini->value;
 
-    public string $imageModel = 'gemini-3.1-flash-image-preview';
+    public string $imageModel = '';
 
     public string $openAiApiKey = '';
 
     public string $geminiApiKey = '';
+
+    public string $ollamaUrl = 'http://localhost:11434';
 
     public string $openAiKeyStatus = 'No key configured';
 
@@ -45,15 +47,24 @@ new class extends Component {
         $this->textModel = $settings->textModel($current);
         $this->imageProvider = $settings->imageProvider($current)->value;
         $this->imageModel = $settings->imageModel($current);
+        $this->ollamaUrl = $settings->ollamaUrl($current);
         $this->refreshKeyStatuses($settings);
     }
 
     /**
      * @return array<int, array{id: string, name: string}>
      */
-    public function providerOptions(): array
+    public function textProviderOptions(): array
     {
-        return GenerationProvider::options();
+        return GenerationProvider::options(GenerationProvider::TEXT);
+    }
+
+    /**
+     * @return array<int, array{id: string, name: string}>
+     */
+    public function imageProviderOptions(): array
+    {
+        return GenerationProvider::options(GenerationProvider::IMAGE);
     }
 
     /**
@@ -78,6 +89,14 @@ new class extends Component {
         return $provider === null
             ? []
             : app(AiModelCatalog::class)->options($provider, AiModelCatalog::IMAGE);
+    }
+
+    public function textModelIsCustom(): bool
+    {
+        $provider = GenerationProvider::tryFrom($this->textProvider);
+
+        return $provider !== null
+            && app(AiModelCatalog::class)->allowsCustomModel($provider, AiModelCatalog::TEXT);
     }
 
     public function updatedTextProvider(): void
@@ -108,18 +127,38 @@ new class extends Component {
     {
         $selectedTextProvider = GenerationProvider::tryFrom($this->textProvider);
         $selectedImageProvider = GenerationProvider::tryFrom($this->imageProvider);
+        $textModelRules = ['required', 'string', 'max:255'];
+
+        if ($selectedTextProvider !== null && ! $models->allowsCustomModel($selectedTextProvider, AiModelCatalog::TEXT)) {
+            $textModelRules[] = Rule::in($models->ids($selectedTextProvider, AiModelCatalog::TEXT));
+        }
 
         $validated = $this->validate([
-            'textProvider' => ['required', Rule::enum(GenerationProvider::class)],
-            'textModel' => ['required', 'string', Rule::in(
-                $selectedTextProvider === null ? [] : $models->ids($selectedTextProvider, AiModelCatalog::TEXT),
-            )],
-            'imageProvider' => ['required', Rule::enum(GenerationProvider::class)],
+            'textProvider' => [
+                'required',
+                Rule::enum(GenerationProvider::class)->only(
+                    array_filter(GenerationProvider::cases(), fn (GenerationProvider $provider): bool => $provider->supports(GenerationProvider::TEXT)),
+                ),
+            ],
+            'textModel' => $textModelRules,
+            'imageProvider' => [
+                'required',
+                Rule::enum(GenerationProvider::class)->only(
+                    array_filter(GenerationProvider::cases(), fn (GenerationProvider $provider): bool => $provider->supports(GenerationProvider::IMAGE)),
+                ),
+            ],
             'imageModel' => ['required', 'string', Rule::in(
                 $selectedImageProvider === null ? [] : $models->ids($selectedImageProvider, AiModelCatalog::IMAGE),
             )],
             'openAiApiKey' => ['nullable', 'string', 'max:512'],
             'geminiApiKey' => ['nullable', 'string', 'max:512'],
+            'ollamaUrl' => [
+                Rule::requiredIf($selectedTextProvider === GenerationProvider::Ollama),
+                'nullable',
+                'string',
+                'url:http,https',
+                'max:2048',
+            ],
         ]);
 
         $textProvider = GenerationProvider::from($validated['textProvider']);
@@ -128,9 +167,16 @@ new class extends Component {
 
         foreach (array_unique([$textProvider->value, $imageProvider->value]) as $providerValue) {
             $provider = GenerationProvider::from($providerValue);
-            $newKey = $provider === GenerationProvider::OpenAI
-                ? $validated['openAiApiKey']
-                : $validated['geminiApiKey'];
+
+            if (! $provider->requiresApiKey()) {
+                continue;
+            }
+
+            $newKey = match ($provider) {
+                GenerationProvider::OpenAI => $validated['openAiApiKey'],
+                GenerationProvider::Gemini => $validated['geminiApiKey'],
+                GenerationProvider::Ollama => null,
+            };
 
             if (blank($newKey) && $settings->effectiveKey($provider, $current) === null) {
                 $this->addError(
@@ -151,6 +197,7 @@ new class extends Component {
             $validated['imageModel'],
             $validated['openAiApiKey'],
             $validated['geminiApiKey'],
+            $validated['ollamaUrl'],
         );
 
         $this->reset('openAiApiKey', 'geminiApiKey');
@@ -225,31 +272,74 @@ new class extends Component {
                         <p class="text-sm text-base-content/60">Text powers prompt generation and prompt engineering. Image creates the final wallpaper.</p>
                     </div>
 
-                    <x-select
-                        label="Text provider"
-                        icon="lucide.message-square-text"
-                        :options="$this->providerOptions()"
-                        wire:model.live="textProvider" />
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="flex flex-col gap-1.5">
+                            <div class="fieldset-legend mb-0.5 flex items-center gap-1.5">
+                                <x-icon name="lucide.message-square-text" class="size-4 text-base-content/50" />
+                                <span>Text provider</span>
+                            </div>
 
-                    <x-select
-                        label="Text model"
-                        icon="lucide.cpu"
-                        :options="$this->textModelOptions()"
-                        wire:model="textModel"
-                        wire:key="text-model-{{ $textProvider }}" />
+                            <x-select
+                                aria-label="Text provider"
+                                :options="$this->textProviderOptions()"
+                                wire:model.live="textProvider" />
+                        </div>
 
-                    <x-select
-                        label="Image provider"
-                        icon="lucide.image"
-                        :options="$this->providerOptions()"
-                        wire:model.live="imageProvider" />
+                        @if($this->textModelIsCustom())
+                            <div class="flex flex-col gap-1.5">
+                                <div class="fieldset-legend mb-0.5 flex items-center gap-1.5">
+                                    <x-icon name="lucide.cpu" class="size-4 text-base-content/50" />
+                                    <span>Text model</span>
+                                </div>
 
-                    <x-select
-                        label="Image model"
-                        icon="lucide.scan"
-                        :options="$this->imageModelOptions()"
-                        wire:model="imageModel"
-                        wire:key="image-model-{{ $imageProvider }}" />
+                                <x-input
+                                    aria-label="Text model"
+                                    wire:model="textModel"
+                                    placeholder="{{ GenerationProvider::Ollama->defaultModel(GenerationProvider::TEXT) }}"
+                                    wire:key="text-model-input-{{ $textProvider }}" />
+                            </div>
+                        @else
+                            <div class="flex flex-col gap-1.5">
+                                <div class="fieldset-legend mb-0.5 flex items-center gap-1.5">
+                                    <x-icon name="lucide.cpu" class="size-4 text-base-content/50" />
+                                    <span>Text model</span>
+                                </div>
+
+                                <x-select
+                                    aria-label="Text model"
+                                    :options="$this->textModelOptions()"
+                                    wire:model="textModel"
+                                    wire:key="text-model-select-{{ $textProvider }}" />
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="flex flex-col gap-1.5">
+                            <div class="fieldset-legend mb-0.5 flex items-center gap-1.5">
+                                <x-icon name="lucide.image" class="size-4 text-base-content/50" />
+                                <span>Image provider</span>
+                            </div>
+
+                            <x-select
+                                aria-label="Image provider"
+                                :options="$this->imageProviderOptions()"
+                                wire:model.live="imageProvider" />
+                        </div>
+
+                        <div class="flex flex-col gap-1.5">
+                            <div class="fieldset-legend mb-0.5 flex items-center gap-1.5">
+                                <x-icon name="lucide.cpu" class="size-4 text-base-content/50" />
+                                <span>Image model</span>
+                            </div>
+
+                            <x-select
+                                aria-label="Image model"
+                                :options="$this->imageModelOptions()"
+                                wire:model="imageModel"
+                                wire:key="image-model-{{ $imageProvider }}" />
+                        </div>
+                    </div>
                 </section>
 
                 <div class="divider my-0">Credentials</div>
@@ -305,6 +395,21 @@ new class extends Component {
                             placeholder="Leave blank to keep the current key"
                             autocomplete="new-password"
                             right />
+                    </section>
+                @endif
+
+                @if($textProvider === GenerationProvider::Ollama->value)
+                    <section class="flex flex-col gap-3" wire:key="ollama-connection">
+                        <div>
+                            <h3 class="font-semibold">Ollama connection</h3>
+                            <p class="text-xs text-base-content/60">The URL must be reachable from the Laravel server. No API key is required for a standard local Ollama installation.</p>
+                        </div>
+
+                        <x-input
+                            label="Ollama URL"
+                            icon="lucide.server"
+                            wire:model="ollamaUrl"
+                            placeholder="http://localhost:11434" />
                     </section>
                 @endif
 

@@ -95,6 +95,29 @@ it('uses independent providers for prompt engineering and image generation', fun
     );
 });
 
+it('uses Ollama for prompt engineering with a supported image provider', function () {
+    ImagePromptAgent::fake();
+    Image::fake([
+        base64_encode('fake-image-content'),
+    ]);
+
+    app(WallpaperService::class)->generateImage(
+        'a moonlit forest',
+        BackgroundStyle::PhotoRealist,
+        textProvider: GenerationProvider::Ollama,
+        imageProvider: GenerationProvider::Gemini,
+        textModel: 'qwen3:14b',
+    );
+
+    ImagePromptAgent::assertPrompted(
+        fn ($prompt) => $prompt->provider()->driver() === GenerationProvider::Ollama->value
+            && $prompt->model === 'qwen3:14b',
+    );
+    Image::assertGenerated(
+        fn ($prompt) => $prompt->provider->driver() === GenerationProvider::Gemini->value,
+    );
+});
+
 it('uses the selected models for prompt engineering and image generation', function () {
     ImagePromptAgent::fake();
     Image::fake([
@@ -106,11 +129,11 @@ it('uses the selected models for prompt engineering and image generation', funct
         BackgroundStyle::PhotoRealist,
         textProvider: GenerationProvider::OpenAI,
         imageProvider: GenerationProvider::OpenAI,
-        textModel: 'gpt-5.4-pro',
+        textModel: 'gpt-5.6-sol',
         imageModel: 'gpt-image-2',
     );
 
-    ImagePromptAgent::assertPrompted(fn ($prompt) => $prompt->model === 'gpt-5.4-pro');
+    ImagePromptAgent::assertPrompted(fn ($prompt) => $prompt->model === 'gpt-5.6-sol');
     Image::assertGenerated(fn ($prompt) => $prompt->model === 'gpt-image-2');
 });
 

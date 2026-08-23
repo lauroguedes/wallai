@@ -20,11 +20,12 @@ class AiProviderSettingFactory extends Factory
     {
         return [
             'text_provider' => GenerationProvider::Gemini,
-            'text_model' => 'gemini-3.7-flash',
+            'text_model' => GenerationProvider::Gemini->defaultModel(GenerationProvider::TEXT),
             'image_provider' => GenerationProvider::Gemini,
-            'image_model' => 'gemini-3.1-flash-image-preview',
+            'image_model' => GenerationProvider::Gemini->defaultModel(GenerationProvider::IMAGE),
             'openai_api_key' => fake()->uuid(),
             'gemini_api_key' => fake()->uuid(),
+            'ollama_url' => 'http://localhost:11434',
         ];
     }
 }

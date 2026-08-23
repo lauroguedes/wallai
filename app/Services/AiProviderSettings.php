@@ -6,6 +6,7 @@ use App\Enums\GenerationProvider;
 use App\Exceptions\MissingAiCredentialsException;
 use App\Models\AiProviderSetting;
 use App\Support\AiModelCatalog;
+use InvalidArgumentException;
 
 class AiProviderSettings
 {
@@ -32,7 +33,16 @@ class AiProviderSettings
         string $imageModel,
         ?string $openAiApiKey = null,
         ?string $geminiApiKey = null,
+        ?string $ollamaUrl = null,
     ): AiProviderSetting {
+        if (! $textProvider->supports(GenerationProvider::TEXT)) {
+            throw new InvalidArgumentException("{$textProvider->label()} does not support text generation.");
+        }
+
+        if (! $imageProvider->supports(GenerationProvider::IMAGE)) {
+            throw new InvalidArgumentException("{$imageProvider->label()} does not support image generation.");
+        }
+
         $settings = $this->current() ?? new AiProviderSetting;
 
         $settings->text_provider = $textProvider;
@@ -46,6 +56,10 @@ class AiProviderSettings
 
         if (filled($geminiApiKey)) {
             $settings->gemini_api_key = trim($geminiApiKey);
+        }
+
+        if (filled($ollamaUrl)) {
+            $settings->ollama_url = rtrim(trim($ollamaUrl), '/');
         }
 
         $settings->save();
@@ -69,7 +83,13 @@ class AiProviderSettings
             return null;
         }
 
-        $settings->setAttribute($provider->apiKeyAttribute(), null);
+        $attribute = $provider->apiKeyAttribute();
+
+        if ($attribute === null) {
+            return $settings;
+        }
+
+        $settings->setAttribute($attribute, null);
         $settings->save();
 
         return $settings;
@@ -83,8 +103,12 @@ class AiProviderSettings
 
     public function imageProvider(?AiProviderSetting $settings = null): GenerationProvider
     {
-        return $settings?->image_provider
+        $provider = $settings?->image_provider
             ?? GenerationProvider::from((string) config('wallpaper.ai.image_provider', GenerationProvider::Gemini->value));
+
+        return $provider->supports(GenerationProvider::IMAGE)
+            ? $provider
+            : GenerationProvider::Gemini;
     }
 
     public function textModel(?AiProviderSetting $settings = null, ?GenerationProvider $provider = null): string
@@ -109,6 +133,30 @@ class AiProviderSettings
         return filled($key) ? (string) $key : null;
     }
 
+    public function ollamaUrl(?AiProviderSetting $settings = null): string
+    {
+        $url = $settings?->ollama_url
+            ?? config('ai.providers.ollama.url', 'http://localhost:11434');
+
+        return rtrim((string) $url, '/');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function runtimeConfiguration(GenerationProvider $provider, ?AiProviderSetting $settings = null): array
+    {
+        $configuration = (array) config("ai.providers.{$provider->value}", []);
+        $configuration['driver'] = $provider->value;
+        $configuration['key'] = $this->effectiveKey($provider, $settings) ?? '';
+
+        if ($provider === GenerationProvider::Ollama) {
+            $configuration['url'] = $this->ollamaUrl($settings);
+        }
+
+        return $configuration;
+    }
+
     public function hasStoredKey(GenerationProvider $provider, ?AiProviderSetting $settings = null): bool
     {
         return $settings?->apiKeyFor($provider) !== null;
@@ -116,6 +164,10 @@ class AiProviderSettings
 
     public function keyStatus(GenerationProvider $provider, ?AiProviderSetting $settings = null): string
     {
+        if (! $provider->requiresApiKey()) {
+            return 'No API key required';
+        }
+
         $storedKey = $settings?->apiKeyFor($provider);
 
         if ($storedKey !== null) {
@@ -141,7 +193,7 @@ class AiProviderSettings
 
             $checked[$provider->value] = true;
 
-            if ($this->effectiveKey($provider, $settings) === null) {
+            if ($provider->requiresApiKey() && $this->effectiveKey($provider, $settings) === null) {
                 throw new MissingAiCredentialsException($provider);
             }
         }

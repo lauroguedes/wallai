@@ -55,3 +55,23 @@ it('can use the server configured key without saved session settings', function 
         },
     );
 });
+
+it('configures Ollama with a custom URL without requiring an API key', function () {
+    $settings = new AiProviderSetting;
+    $settings->ollama_url = 'http://host.docker.internal:11434';
+
+    $alias = app(RuntimeAiProvider::class)->using(
+        GenerationProvider::Ollama,
+        $settings,
+        function (string $alias): string {
+            expect(config("ai.providers.{$alias}.driver"))->toBe(GenerationProvider::Ollama->value)
+                ->and(config("ai.providers.{$alias}.key"))->toBe('')
+                ->and(config("ai.providers.{$alias}.url"))->toBe('http://host.docker.internal:11434')
+                ->and(Ai::textProvider($alias))->toBeInstanceOf(TextProvider::class);
+
+            return $alias;
+        },
+    );
+
+    expect(config("ai.providers.{$alias}"))->toBeNull();
+});

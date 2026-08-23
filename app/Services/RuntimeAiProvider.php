@@ -26,19 +26,14 @@ class RuntimeAiProvider
         ?AiProviderSetting $settings,
         Closure $callback,
     ): mixed {
-        $apiKey = $this->settings->effectiveKey($provider, $settings);
-
-        if ($apiKey === null) {
+        if ($provider->requiresApiKey() && $this->settings->effectiveKey($provider, $settings) === null) {
             throw new MissingAiCredentialsException($provider);
         }
 
         $alias = 'wallai-'.$provider->value.'-'.Str::lower((string) Str::ulid());
         $providers = (array) config('ai.providers', []);
 
-        $providers[$alias] = [
-            'driver' => $provider->value,
-            'key' => $apiKey,
-        ];
+        $providers[$alias] = $this->settings->runtimeConfiguration($provider, $settings);
 
         config(['ai.providers' => $providers]);
         Ai::forgetInstance($alias);

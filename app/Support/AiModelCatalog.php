@@ -3,24 +3,19 @@
 namespace App\Support;
 
 use App\Enums\GenerationProvider;
-use Illuminate\Support\Arr;
 
 class AiModelCatalog
 {
-    public const TEXT = 'text';
+    public const TEXT = GenerationProvider::TEXT;
 
-    public const IMAGE = 'image';
+    public const IMAGE = GenerationProvider::IMAGE;
 
     /**
      * @return array<int, array{id: string, name: string}>
      */
     public function options(GenerationProvider $provider, string $capability): array
     {
-        return Arr::get(
-            config('wallpaper.ai.models', []),
-            "{$provider->value}.{$capability}.options",
-            [],
-        );
+        return $provider->modelOptions($capability);
     }
 
     /**
@@ -33,16 +28,22 @@ class AiModelCatalog
 
     public function default(GenerationProvider $provider, string $capability): string
     {
-        return (string) Arr::get(
-            config('wallpaper.ai.models', []),
-            "{$provider->value}.{$capability}.default",
-        );
+        return $provider->defaultModel($capability) ?? '';
     }
 
     public function resolve(GenerationProvider $provider, string $capability, ?string $model): string
     {
+        if ($this->allowsCustomModel($provider, $capability) && filled($model)) {
+            return trim($model);
+        }
+
         return in_array($model, $this->ids($provider, $capability), true)
             ? $model
             : $this->default($provider, $capability);
+    }
+
+    public function allowsCustomModel(GenerationProvider $provider, string $capability): bool
+    {
+        return $provider->allowsCustomModel($capability);
     }
 }

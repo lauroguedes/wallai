@@ -23,6 +23,7 @@ class AiProviderSetting extends Model
         'image_model',
         'openai_api_key',
         'gemini_api_key',
+        'ollama_url',
     ];
 
     /**
@@ -53,7 +54,13 @@ class AiProviderSetting extends Model
 
     public function apiKeyFor(GenerationProvider $provider): ?string
     {
-        $key = $this->getAttribute($provider->apiKeyAttribute());
+        $attribute = $provider->apiKeyAttribute();
+
+        if ($attribute === null) {
+            return null;
+        }
+
+        $key = $this->getAttribute($attribute);
 
         return filled($key) ? $key : null;
     }

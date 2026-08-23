@@ -38,8 +38,8 @@ class GenerateWallpaper implements ShouldQueue
         public ?string $providerSettingsId = null,
         public GenerationProvider $textProvider = GenerationProvider::Gemini,
         public GenerationProvider $imageProvider = GenerationProvider::Gemini,
-        public string $textModel = 'gemini-3.7-flash',
-        public string $imageModel = 'gemini-3.1-flash-image-preview',
+        public ?string $textModel = null,
+        public ?string $imageModel = null,
     ) {}
 
     /**
