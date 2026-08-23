@@ -2,6 +2,7 @@
 
 use App\Enums\GenerationProvider;
 use App\Services\AiProviderSettings;
+use App\Services\WallpaperService;
 use App\Support\AiModelCatalog;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -13,6 +14,8 @@ new class extends Component {
     use Toast;
 
     public bool $showDrawer = false;
+
+    public bool $showResetModal = false;
 
     public string $textProvider = GenerationProvider::Gemini->value;
 
@@ -171,27 +174,13 @@ new class extends Component {
         $this->success("Saved {$generationProvider->label()} key removed.");
     }
 
-    public function forget(AiProviderSettings $settings): void
+    public function resetSession(WallpaperService $wallpapers): void
     {
-        $settings->forget();
+        $sessionId = session()->getId();
 
-        $this->textProvider = GenerationProvider::from(
-            (string) config('wallpaper.ai.text_provider', GenerationProvider::Gemini->value),
-        )->value;
-        $this->imageProvider = GenerationProvider::from(
-            (string) config('wallpaper.ai.image_provider', GenerationProvider::Gemini->value),
-        )->value;
-        $this->textModel = app(AiModelCatalog::class)->default(
-            GenerationProvider::from($this->textProvider),
-            AiModelCatalog::TEXT,
-        );
-        $this->imageModel = app(AiModelCatalog::class)->default(
-            GenerationProvider::from($this->imageProvider),
-            AiModelCatalog::IMAGE,
-        );
-        $this->reset('openAiApiKey', 'geminiApiKey');
-        $this->refreshKeyStatuses($settings);
-        $this->success('Session provider settings removed.');
+        $wallpapers->resetSession($sessionId);
+
+        $this->redirect('/', navigate: false);
     }
 
     private function refreshKeyStatuses(AiProviderSettings $settings): void
@@ -323,8 +312,7 @@ new class extends Component {
                     <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
                         <x-button
                             type="button"
-                            wire:click="forget"
-                            wire:confirm="Forget all provider choices and saved keys for this session?"
+                            wire:click="$set('showResetModal', true)"
                             icon="lucide.rotate-ccw"
                             class="btn-ghost text-error"
                             label="Reset session" />
@@ -338,5 +326,41 @@ new class extends Component {
                 </x-slot:actions>
             </x-form>
         </x-drawer>
+    @endteleport
+
+    @teleport('body')
+        <x-modal
+            wire:model="showResetModal"
+            title="Reset this entire session?"
+            subtitle="WallAI will reload with a completely new session."
+            separator
+            box-class="max-w-lg">
+            <div class="flex flex-col gap-4">
+                <x-alert
+                    icon="lucide.triangle-alert"
+                    class="alert-warning"
+                    title="This action cannot be undone"
+                    description="All generated images, pending generations, provider choices, models, and saved API keys for this session will be permanently removed." />
+
+                <p class="text-sm text-base-content/70">
+                    Download any images you want to keep before continuing.
+                </p>
+            </div>
+
+            <x-slot:actions>
+                <x-button
+                    type="button"
+                    wire:click="$set('showResetModal', false)"
+                    class="btn-ghost"
+                    label="Keep session" />
+                <x-button
+                    type="button"
+                    wire:click="resetSession"
+                    spinner="resetSession"
+                    icon="lucide.rotate-ccw"
+                    class="btn-error"
+                    label="Reset and reload" />
+            </x-slot:actions>
+        </x-modal>
     @endteleport
 </div>

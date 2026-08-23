@@ -97,3 +97,40 @@ it('stores failed status and decrements pending count on failure', function () {
 
     expect((int) Cache::get("pending_jobs:{$sessionId}"))->toBe(0);
 });
+
+it('does not generate or restore images for a reset session', function () {
+    $sessionId = 'reset-session-id';
+    $jobId = 'reset-job-id';
+
+    Cache::put("wallpaper_session:{$sessionId}:reset", true);
+
+    $job = new GenerateWallpaper($sessionId, $jobId, 'a sunset', BackgroundStyle::PhotoRealist, DeviceType::Mobile);
+    $job->handle(app(WallpaperService::class));
+
+    ImagePromptAgent::assertNeverPrompted();
+
+    expect(Cache::get("wallpaper_job:{$jobId}"))->toBeNull()
+        ->and(Cache::get("wallpapers:{$sessionId}:mobile"))->toBeNull();
+});
+
+it('deletes an image that finishes after its session was reset', function () {
+    $sessionId = 'reset-during-generation';
+    $jobId = 'late-job-id';
+    $path = "wallpapers/{$sessionId}/late.png";
+
+    Storage::disk('public')->put($path, 'late-image');
+    Cache::put("wallpaper_session:{$sessionId}:reset", true);
+
+    app(WallpaperService::class)->completeGeneration($sessionId, $jobId, DeviceType::Mobile, [
+        'id' => 'late.png',
+        'url' => "/storage/{$path}",
+        'path' => $path,
+        'extension' => 'png',
+        'style' => BackgroundStyle::PhotoRealist->value,
+    ]);
+
+    Storage::disk('public')->assertMissing($path);
+
+    expect(Cache::get("wallpaper_job:{$jobId}"))->toBeNull()
+        ->and(Cache::get("wallpapers:{$sessionId}:mobile"))->toBeNull();
+});

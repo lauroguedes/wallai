@@ -44,7 +44,7 @@ class WallpaperService
 
         $this->providerSettings->ensureConfigured([$textProvider, $imageProvider], $settings);
 
-        Cache::put("pending_jobs:{$sessionId}", $this->getPendingJobCount($sessionId) + 1, now()->addDay());
+        $this->registerGeneration($sessionId, $jobId);
 
         GenerateWallpaper::dispatch(
             $sessionId,
@@ -69,6 +69,87 @@ class WallpaperService
     public function getPendingJobCount(string $sessionId): int
     {
         return (int) Cache::get("pending_jobs:{$sessionId}", 0);
+    }
+
+    /**
+     * Remove every resource owned by the current browser session and rotate its ID.
+     */
+    public function resetSession(string $sessionId): void
+    {
+        Cache::lock($this->sessionLockKey($sessionId), 10)->block(5, function () use ($sessionId): void {
+            Cache::put($this->resetMarkerKey($sessionId), true, now()->addDay());
+
+            $jobIds = Cache::get($this->jobRegistryKey($sessionId), []);
+
+            if (is_array($jobIds)) {
+                foreach ($jobIds as $jobId) {
+                    Cache::forget("wallpaper_job:{$jobId}");
+                }
+            }
+
+            foreach (DeviceType::cases() as $deviceType) {
+                Cache::forget("wallpapers:{$sessionId}:{$deviceType->value}");
+            }
+
+            Cache::forget("pending_jobs:{$sessionId}");
+            Cache::forget($this->jobRegistryKey($sessionId));
+            Storage::disk('public')->deleteDirectory("wallpapers/{$sessionId}");
+            $this->providerSettings->forget();
+        });
+
+        session()->invalidate();
+        session()->regenerateToken();
+    }
+
+    public function sessionWasReset(string $sessionId): bool
+    {
+        return Cache::has($this->resetMarkerKey($sessionId));
+    }
+
+    /**
+     * @param  array{id: string, url: string, path: string, extension: string, style: string}  $wallpaper
+     */
+    public function completeGeneration(
+        string $sessionId,
+        string $jobId,
+        DeviceType $deviceType,
+        array $wallpaper,
+    ): void {
+        Cache::lock($this->sessionLockKey($sessionId), 10)->block(5, function () use ($sessionId, $jobId, $deviceType, $wallpaper): void {
+            if ($this->sessionWasReset($sessionId)) {
+                Storage::disk('public')->delete($wallpaper['path']);
+
+                return;
+            }
+
+            Cache::put("wallpaper_job:{$jobId}", [
+                'status' => 'completed',
+                'wallpaper' => $wallpaper,
+            ], now()->addDay());
+
+            $cacheKey = "wallpapers:{$sessionId}:{$deviceType->value}";
+            $wallpapers = Cache::get($cacheKey, []);
+            $wallpapers[] = $wallpaper;
+            Cache::put($cacheKey, $wallpapers, now()->addDay());
+
+            $this->decrementPendingJobCount($sessionId);
+        });
+    }
+
+    public function failGeneration(string $sessionId, string $jobId, string $message): void
+    {
+        Cache::lock($this->sessionLockKey($sessionId), 10)->block(5, function () use ($sessionId, $jobId, $message): void {
+            if ($this->sessionWasReset($sessionId)) {
+                return;
+            }
+
+            Cache::put("wallpaper_job:{$jobId}", [
+                'status' => 'failed',
+                'message' => $message,
+            ], now()->addDay());
+
+            $this->decrementPendingJobCount($sessionId);
+        });
     }
 
     /**
@@ -362,5 +443,40 @@ class WallpaperService
         }
 
         return $wallpaper;
+    }
+
+    private function registerGeneration(string $sessionId, string $jobId): void
+    {
+        Cache::lock($this->sessionLockKey($sessionId), 10)->block(5, function () use ($sessionId, $jobId): void {
+            Cache::put("pending_jobs:{$sessionId}", $this->getPendingJobCount($sessionId) + 1, now()->addDay());
+
+            $jobIds = Cache::get($this->jobRegistryKey($sessionId), []);
+            $jobIds = is_array($jobIds) ? $jobIds : [];
+            $jobIds[] = $jobId;
+
+            Cache::put($this->jobRegistryKey($sessionId), array_values(array_unique($jobIds)), now()->addDay());
+        });
+    }
+
+    private function decrementPendingJobCount(string $sessionId): void
+    {
+        if ($this->getPendingJobCount($sessionId) > 0) {
+            Cache::decrement("pending_jobs:{$sessionId}");
+        }
+    }
+
+    private function sessionLockKey(string $sessionId): string
+    {
+        return "wallpaper_session:{$sessionId}:lock";
+    }
+
+    private function resetMarkerKey(string $sessionId): string
+    {
+        return "wallpaper_session:{$sessionId}:reset";
+    }
+
+    private function jobRegistryKey(string $sessionId): string
+    {
+        return "wallpaper_jobs:{$sessionId}";
     }
 }

@@ -321,6 +321,8 @@ it('dispatches a GenerateWallpaper job to device-specific queue', function () {
     $jobId = $service->dispatchGeneration('session-123', 'a sunset', BackgroundStyle::PhotoRealist, DeviceType::Mobile);
 
     expect($jobId)->toBeString()->not->toBeEmpty();
+    expect(Cache::get('wallpaper_jobs:session-123'))->toContain($jobId);
+
     Queue::assertPushedOn('wallpapers-mobile', GenerateWallpaper::class, function ($job) {
         return $job->sessionId === 'session-123'
             && $job->prompt === 'a sunset'

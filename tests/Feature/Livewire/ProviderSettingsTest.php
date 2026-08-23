@@ -7,8 +7,10 @@ use App\Jobs\GenerateWallpaper;
 use App\Models\AiProviderSetting;
 use App\Services\WallpaperService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 uses(LazilyRefreshDatabase::class);
@@ -128,15 +130,50 @@ it('uses environment keys as a backwards compatible fallback', function () {
     expect(AiProviderSetting::query()->sole()->gemini_api_key)->toBeNull();
 });
 
-it('forgets the session settings and encrypted keys', function () {
+it('shows a Mary UI warning before resetting the session', function () {
     Livewire::test('provider-settings')
-        ->set('geminiApiKey', 'gemini-secret-key')
-        ->call('save')
-        ->call('forget')
-        ->assertSet('hasStoredGeminiKey', false);
+        ->assertSet('showResetModal', false)
+        ->set('showResetModal', true)
+        ->assertSee('Reset this entire session?')
+        ->assertSee('This action cannot be undone')
+        ->assertSee('Reset and reload');
+});
 
-    expect(AiProviderSetting::query()->exists())->toBeFalse()
-        ->and(session('ai_provider_settings_id'))->toBeNull();
+it('resets all session data, generated images, caches, and provider settings', function () {
+    Storage::fake('public');
+
+    $component = Livewire::test('provider-settings')
+        ->set('geminiApiKey', 'gemini-secret-key')
+        ->call('save');
+
+    $settings = AiProviderSetting::query()->sole();
+    $oldSessionId = session()->getId();
+    $jobId = 'reset-job-id';
+
+    session()->put('temporary-preference', 'remove-me');
+    Storage::disk('public')->put("wallpapers/{$oldSessionId}/mobile.png", 'mobile-image');
+    Storage::disk('public')->put("wallpapers/{$oldSessionId}/desktop.png", 'desktop-image');
+    Cache::put("wallpapers:{$oldSessionId}:mobile", [['id' => 'mobile.png']]);
+    Cache::put("wallpapers:{$oldSessionId}:desktop", [['id' => 'desktop.png']]);
+    Cache::put("pending_jobs:{$oldSessionId}", 1);
+    Cache::put("wallpaper_jobs:{$oldSessionId}", [$jobId]);
+    Cache::put("wallpaper_job:{$jobId}", ['status' => 'pending']);
+
+    $component
+        ->set('showResetModal', true)
+        ->call('resetSession')
+        ->assertRedirect('/');
+
+    expect(AiProviderSetting::query()->find($settings->getKey()))->toBeNull()
+        ->and(session()->getId())->not->toBe($oldSessionId)
+        ->and(session('temporary-preference'))->toBeNull()
+        ->and(Cache::get("wallpapers:{$oldSessionId}:mobile"))->toBeNull()
+        ->and(Cache::get("wallpapers:{$oldSessionId}:desktop"))->toBeNull()
+        ->and(Cache::get("pending_jobs:{$oldSessionId}"))->toBeNull()
+        ->and(Cache::get("wallpaper_jobs:{$oldSessionId}"))->toBeNull()
+        ->and(Cache::get("wallpaper_job:{$jobId}"))->toBeNull()
+        ->and(Cache::has("wallpaper_session:{$oldSessionId}:reset"))->toBeTrue()
+        ->and(Storage::disk('public')->exists("wallpapers/{$oldSessionId}"))->toBeFalse();
 });
 
 it('rejects unsupported providers in component actions', function () {

@@ -9,7 +9,6 @@ use App\Exceptions\ServiceGeneratorException;
 use App\Services\WallpaperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -48,6 +47,10 @@ class GenerateWallpaper implements ShouldQueue
      */
     public function handle(WallpaperService $service): void
     {
+        if ($service->sessionWasReset($this->sessionId)) {
+            return;
+        }
+
         $result = $service->generateImage(
             $this->prompt,
             $this->style,
@@ -60,19 +63,7 @@ class GenerateWallpaper implements ShouldQueue
             $this->imageModel,
         );
 
-        Cache::put("wallpaper_job:{$this->jobId}", [
-            'status' => 'completed',
-            'wallpaper' => $result,
-        ], now()->addDay());
-
-        $cacheKey = "wallpapers:{$this->sessionId}:{$this->deviceType->value}";
-        Cache::lock("{$cacheKey}:lock", 10)->block(5, function () use ($cacheKey, $result) {
-            $existing = Cache::get($cacheKey, []);
-            $existing[] = $result;
-            Cache::put($cacheKey, $existing, now()->addDay());
-        });
-
-        Cache::decrement("pending_jobs:{$this->sessionId}");
+        $service->completeGeneration($this->sessionId, $this->jobId, $this->deviceType, $result);
     }
 
     /**
@@ -86,11 +77,12 @@ class GenerateWallpaper implements ShouldQueue
             'exception' => $exception?->getMessage(),
         ]);
 
-        Cache::put("wallpaper_job:{$this->jobId}", [
-            'status' => 'failed',
-            'message' => ServiceGeneratorException::imageGeneration($exception ?? new \RuntimeException('Unknown error'))->getUserMessage(),
-        ], now()->addDay());
-
-        Cache::decrement("pending_jobs:{$this->sessionId}");
+        app(WallpaperService::class)->failGeneration(
+            $this->sessionId,
+            $this->jobId,
+            ServiceGeneratorException::imageGeneration(
+                $exception ?? new \RuntimeException('Unknown error'),
+            )->getUserMessage(),
+        );
     }
 }
