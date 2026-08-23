@@ -2,7 +2,9 @@
 
 use App\Enums\GenerationProvider;
 use App\Services\AiProviderSettings;
+use App\Services\ApplicationSetup;
 use App\Services\WallpaperService;
+use App\Services\WorkspaceContext;
 use App\Support\AiModelCatalog;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -39,7 +41,9 @@ new class extends Component {
 
     public bool $hasStoredGeminiKey = false;
 
-    public function mount(AiProviderSettings $settings): void
+    public bool $authenticationEnabled = false;
+
+    public function mount(AiProviderSettings $settings, ApplicationSetup $setup): void
     {
         $current = $settings->current();
 
@@ -48,6 +52,7 @@ new class extends Component {
         $this->imageProvider = $settings->imageProvider($current)->value;
         $this->imageModel = $settings->imageModel($current);
         $this->ollamaUrl = $settings->ollamaUrl($current);
+        $this->authenticationEnabled = $setup->authenticationEnabled();
         $this->refreshKeyStatuses($settings);
     }
 
@@ -221,11 +226,9 @@ new class extends Component {
         $this->success("Saved {$generationProvider->label()} key removed.");
     }
 
-    public function resetSession(WallpaperService $wallpapers): void
+    public function resetSession(WallpaperService $wallpapers, WorkspaceContext $workspace): void
     {
-        $sessionId = session()->getId();
-
-        $wallpapers->resetSession($sessionId);
+        $wallpapers->resetSession($workspace->key());
 
         $this->redirect('/', navigate: false);
     }
@@ -253,8 +256,8 @@ new class extends Component {
     @teleport('body')
         <x-drawer
             wire:model="showDrawer"
-            title="AI Provider Settings"
-            subtitle="Choose which services create prompts and images."
+            title="Settings"
+            subtitle="Manage AI providers{{ $authenticationEnabled ? ' and your account' : '' }}."
             right
             withCloseButton
             closeOnEscape
@@ -420,7 +423,7 @@ new class extends Component {
                             wire:click="$set('showResetModal', true)"
                             icon="lucide.rotate-ccw"
                             class="btn-ghost text-error"
-                            label="Reset session" />
+                            label="{{ $authenticationEnabled ? 'Reset workspace' : 'Reset session' }}" />
                         <x-button
                             type="submit"
                             spinner="save"
@@ -430,14 +433,19 @@ new class extends Component {
                     </div>
                 </x-slot:actions>
             </x-form>
+
+            @if($authenticationEnabled)
+                <div class="divider my-6">Account</div>
+                <livewire:account-settings />
+            @endif
         </x-drawer>
     @endteleport
 
     @teleport('body')
         <x-modal
             wire:model="showResetModal"
-            title="Reset this entire session?"
-            subtitle="WallAI will reload with a completely new session."
+            title="{{ $authenticationEnabled ? 'Reset your workspace?' : 'Reset this entire session?' }}"
+            subtitle="{{ $authenticationEnabled ? 'Your account stays signed in, but its WallAI data will be cleared.' : 'WallAI will reload with a completely new session.' }}"
             separator
             box-class="max-w-lg">
             <div class="flex flex-col gap-4">
@@ -445,7 +453,7 @@ new class extends Component {
                     icon="lucide.triangle-alert"
                     class="alert-warning"
                     title="This action cannot be undone"
-                    description="All generated images, pending generations, provider choices, models, and saved API keys for this session will be permanently removed." />
+                    description="All generated images, pending generations, provider choices, models, and saved API keys for {{ $authenticationEnabled ? 'your account' : 'this session' }} will be permanently removed." />
 
                 <p class="text-sm text-base-content/70">
                     Download any images you want to keep before continuing.
@@ -457,7 +465,7 @@ new class extends Component {
                     type="button"
                     wire:click="$set('showResetModal', false)"
                     class="btn-ghost"
-                    label="Keep session" />
+                    label="Cancel" />
                 <x-button
                     type="button"
                     wire:click="resetSession"

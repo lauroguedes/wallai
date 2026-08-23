@@ -4,6 +4,7 @@ use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
 use App\Exceptions\ServiceGeneratorException;
 use App\Services\WallpaperService;
+use App\Services\WorkspaceContext;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -35,10 +36,10 @@ new class extends Component {
         '🔮 Conjuring something beautiful...',
     ];
 
-    public function mount(string $deviceType, WallpaperService $service): void
+    public function mount(string $deviceType, WallpaperService $service, WorkspaceContext $workspace): void
     {
         $this->deviceType = $deviceType;
-        $this->wallpapers = $service->getSessionWallpapers(session()->getId(), $this->deviceType);
+        $this->wallpapers = $service->getSessionWallpapers($workspace->key(), $this->deviceType);
 
         if (! empty($this->wallpapers)) {
             $this->activeWallpaper = end($this->wallpapers);
@@ -57,7 +58,7 @@ new class extends Component {
         $this->showLoading = true;
     }
 
-    public function checkPendingJobs(WallpaperService $service): void
+    public function checkPendingJobs(WallpaperService $service, WorkspaceContext $workspace): void
     {
         $stillPending = [];
         $hasCompleted = false;
@@ -82,7 +83,7 @@ new class extends Component {
         }
 
         if ($hasCompleted) {
-            $this->wallpapers = $service->getSessionWallpapers(session()->getId(), $this->deviceType);
+            $this->wallpapers = $service->getSessionWallpapers($workspace->key(), $this->deviceType);
         }
 
         $this->pendingJobs = $stillPending;
@@ -105,9 +106,9 @@ new class extends Component {
         $this->showLoading = true;
     }
 
-    public function deleteWallpaper(string $wallpaperId, WallpaperService $service): void
+    public function deleteWallpaper(string $wallpaperId, WallpaperService $service, WorkspaceContext $workspace): void
     {
-        $this->wallpapers = $service->deleteWallpaper(session()->getId(), $wallpaperId, $this->deviceType);
+        $this->wallpapers = $service->deleteWallpaper($workspace->key(), $wallpaperId, $this->deviceType);
 
         if ($this->activeWallpaper && $this->activeWallpaper['id'] === $wallpaperId) {
             $this->activeWallpaper = ! empty($this->wallpapers) ? end($this->wallpapers) : null;

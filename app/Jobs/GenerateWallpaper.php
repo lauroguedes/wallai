@@ -47,7 +47,7 @@ class GenerateWallpaper implements ShouldQueue
      */
     public function handle(WallpaperService $service): void
     {
-        if ($service->sessionWasReset($this->sessionId)) {
+        if ($service->generationWasCancelled($this->sessionId, $this->jobId)) {
             return;
         }
 

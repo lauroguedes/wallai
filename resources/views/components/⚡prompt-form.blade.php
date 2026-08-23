@@ -5,6 +5,7 @@ use App\Enums\DeviceType;
 use App\Exceptions\MissingAiCredentialsException;
 use App\Exceptions\ServiceGeneratorException;
 use App\Services\WallpaperService;
+use App\Services\WorkspaceContext;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
@@ -32,11 +33,11 @@ new class extends Component {
         $this->promptWasGenerated = false;
     }
 
-    public function generate(WallpaperService $service): void
+    public function generate(WallpaperService $service, WorkspaceContext $workspace): void
     {
-        $sessionId = session()->getId();
+        $workspaceKey = $workspace->key();
 
-        if ($service->getPendingJobCount($sessionId) >= WallpaperService::maxPendingJobs()) {
+        if ($service->getPendingJobCount($workspaceKey) >= WallpaperService::maxPendingJobs()) {
             $this->error('You have too many pending generations. Please wait.');
 
             return;
@@ -46,7 +47,7 @@ new class extends Component {
         $deviceType = DeviceType::from($this->deviceType);
 
         try {
-            $jobId = $service->dispatchGeneration($sessionId, $this->prompt, $style, $deviceType);
+            $jobId = $service->dispatchGeneration($workspaceKey, $this->prompt, $style, $deviceType);
         } catch (MissingAiCredentialsException $e) {
             $this->dispatch('open-provider-settings');
             $this->error($e->getUserMessage());

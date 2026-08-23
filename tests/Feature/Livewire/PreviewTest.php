@@ -1,8 +1,11 @@
 <?php
 
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+
+uses(LazilyRefreshDatabase::class);
 
 beforeEach(function () {
     Storage::fake('public');

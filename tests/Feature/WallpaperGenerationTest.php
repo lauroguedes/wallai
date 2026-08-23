@@ -8,10 +8,13 @@ use App\Enums\GenerationProvider;
 use App\Exceptions\ServiceGeneratorException;
 use App\Jobs\GenerateWallpaper;
 use App\Services\WallpaperService;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Image;
+
+uses(LazilyRefreshDatabase::class);
 
 beforeEach(function () {
     Storage::fake('public');

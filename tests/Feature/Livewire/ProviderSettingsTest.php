@@ -1,10 +1,12 @@
 <?php
 
+use App\Enums\ApplicationMode;
 use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
 use App\Enums\GenerationProvider;
 use App\Jobs\GenerateWallpaper;
 use App\Models\AiProviderSetting;
+use App\Models\ApplicationSetting;
 use App\Services\WallpaperService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -16,6 +18,11 @@ use Livewire\Livewire;
 uses(LazilyRefreshDatabase::class);
 
 beforeEach(function () {
+    ApplicationSetting::factory()->create([
+        'id' => 1,
+        'mode' => ApplicationMode::Session,
+    ]);
+
     config([
         'ai.providers.openai.key' => null,
         'ai.providers.gemini.key' => null,

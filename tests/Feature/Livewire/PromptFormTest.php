@@ -5,10 +5,13 @@ use App\Enums\BackgroundStyle;
 use App\Enums\DeviceType;
 use App\Jobs\GenerateWallpaper;
 use App\Services\WallpaperService;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+
+uses(LazilyRefreshDatabase::class);
 
 beforeEach(function () {
     Storage::fake('public');

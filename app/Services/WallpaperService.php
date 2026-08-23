@@ -10,6 +10,7 @@ use App\Enums\GenerationProvider;
 use App\Exceptions\MissingAiCredentialsException;
 use App\Exceptions\ServiceGeneratorException;
 use App\Jobs\GenerateWallpaper;
+use App\Models\Wallpaper;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -20,6 +21,7 @@ class WallpaperService
     public function __construct(
         private AiProviderSettings $providerSettings,
         private RuntimeAiProvider $runtimeProvider,
+        private WorkspaceContext $workspace,
     ) {}
 
     /**
@@ -72,19 +74,22 @@ class WallpaperService
     }
 
     /**
-     * Remove every resource owned by the current browser session and rotate its ID.
+     * Remove every resource owned by a user or browser session.
      */
     public function resetSession(string $sessionId): void
     {
         Cache::lock($this->sessionLockKey($sessionId), 10)->block(5, function () use ($sessionId): void {
-            Cache::put($this->resetMarkerKey($sessionId), true, now()->addDay());
-
             $jobIds = Cache::get($this->jobRegistryKey($sessionId), []);
 
             if (is_array($jobIds)) {
                 foreach ($jobIds as $jobId) {
                     Cache::forget("wallpaper_job:{$jobId}");
+                    Cache::put($this->cancelledJobKey((string) $jobId), true, now()->addDay());
                 }
+            }
+
+            if (! str_starts_with($sessionId, 'user:')) {
+                Cache::put($this->resetMarkerKey($sessionId), true, now()->addDay());
             }
 
             foreach (DeviceType::cases() as $deviceType) {
@@ -93,17 +98,32 @@ class WallpaperService
 
             Cache::forget("pending_jobs:{$sessionId}");
             Cache::forget($this->jobRegistryKey($sessionId));
-            Storage::disk('public')->deleteDirectory("wallpapers/{$sessionId}");
+
+            $storedWallpapers = Wallpaper::query()->ownedByWorkspace($sessionId)->get();
+
+            foreach ($storedWallpapers as $wallpaper) {
+                Storage::disk('public')->delete($wallpaper->path);
+            }
+
+            Wallpaper::query()->ownedByWorkspace($sessionId)->delete();
+            Storage::disk('public')->deleteDirectory($this->workspace->storageDirectory($sessionId));
             $this->providerSettings->forget();
         });
 
-        session()->invalidate();
-        session()->regenerateToken();
+        if (! str_starts_with($sessionId, 'user:')) {
+            session()->invalidate();
+            session()->regenerateToken();
+        }
     }
 
     public function sessionWasReset(string $sessionId): bool
     {
         return Cache::has($this->resetMarkerKey($sessionId));
+    }
+
+    public function generationWasCancelled(string $sessionId, string $jobId): bool
+    {
+        return $this->sessionWasReset($sessionId) || Cache::has($this->cancelledJobKey($jobId));
     }
 
     /**
@@ -116,11 +136,22 @@ class WallpaperService
         array $wallpaper,
     ): void {
         Cache::lock($this->sessionLockKey($sessionId), 10)->block(5, function () use ($sessionId, $jobId, $deviceType, $wallpaper): void {
-            if ($this->sessionWasReset($sessionId)) {
+            if ($this->generationWasCancelled($sessionId, $jobId)) {
                 Storage::disk('public')->delete($wallpaper['path']);
 
                 return;
             }
+
+            Wallpaper::query()->updateOrCreate(
+                ['id' => $wallpaper['id']],
+                [
+                    ...$this->workspace->ownerAttributes($sessionId),
+                    'device_type' => $deviceType,
+                    'style' => $wallpaper['style'],
+                    'path' => $wallpaper['path'],
+                    'extension' => $wallpaper['extension'],
+                ],
+            );
 
             Cache::put("wallpaper_job:{$jobId}", [
                 'status' => 'completed',
@@ -139,7 +170,7 @@ class WallpaperService
     public function failGeneration(string $sessionId, string $jobId, string $message): void
     {
         Cache::lock($this->sessionLockKey($sessionId), 10)->block(5, function () use ($sessionId, $jobId, $message): void {
-            if ($this->sessionWasReset($sessionId)) {
+            if ($this->generationWasCancelled($sessionId, $jobId)) {
                 return;
             }
 
@@ -173,14 +204,27 @@ class WallpaperService
     }
 
     /**
-     * Get all wallpapers for a session and device type.
+     * Get all wallpapers for a user or session and device type.
      *
      * @return array<int, array{id: string, url: string, path: string, extension: string}>
      */
     public function getSessionWallpapers(string $sessionId, DeviceType|string $deviceType): array
     {
         $deviceValue = $deviceType instanceof DeviceType ? $deviceType->value : $deviceType;
-        $wallpapers = Cache::get("wallpapers:{$sessionId}:{$deviceValue}", []);
+        $cacheKey = "wallpapers:{$sessionId}:{$deviceValue}";
+        $wallpapers = Cache::get($cacheKey);
+
+        if (! is_array($wallpapers)) {
+            $wallpapers = Wallpaper::query()
+                ->ownedByWorkspace($sessionId)
+                ->where('device_type', $deviceValue)
+                ->oldest()
+                ->get()
+                ->map(fn (Wallpaper $wallpaper): array => $this->wallpaperPayload($wallpaper))
+                ->all();
+
+            Cache::put($cacheKey, $wallpapers, now()->addDay());
+        }
 
         return array_map(
             fn (array $wallpaper): array => $this->normalizeWallpaperUrl($wallpaper),
@@ -189,7 +233,7 @@ class WallpaperService
     }
 
     /**
-     * Delete a wallpaper from storage and the session registry.
+     * Delete a wallpaper from storage and its workspace registry.
      */
     public function deleteWallpaper(string $sessionId, string $wallpaperId, DeviceType|string $deviceType): array
     {
@@ -202,6 +246,11 @@ class WallpaperService
         }
 
         $wallpapers = array_values(array_filter($wallpapers, fn (array $w) => $w['id'] !== $wallpaperId));
+
+        Wallpaper::query()
+            ->ownedByWorkspace($sessionId)
+            ->whereKey($wallpaperId)
+            ->delete();
 
         Cache::put("wallpapers:{$sessionId}:{$deviceValue}", $wallpapers, now()->addDay());
 
@@ -259,7 +308,7 @@ class WallpaperService
             $extension = $this->getExtension($image->mime);
             $filename = Str::ulid().'.'.$extension;
 
-            $directory = $sessionId ? "wallpapers/{$sessionId}" : 'wallpapers';
+            $directory = $sessionId ? $this->workspace->storageDirectory($sessionId) : 'wallpapers';
             $path = $directory.'/'.$filename;
 
             Storage::disk('public')->put($path, $image->content());
@@ -478,5 +527,24 @@ class WallpaperService
     private function jobRegistryKey(string $sessionId): string
     {
         return "wallpaper_jobs:{$sessionId}";
+    }
+
+    private function cancelledJobKey(string $jobId): string
+    {
+        return "wallpaper_job_cancelled:{$jobId}";
+    }
+
+    /**
+     * @return array{id: string, url: string, path: string, extension: string, style: string}
+     */
+    private function wallpaperPayload(Wallpaper $wallpaper): array
+    {
+        return [
+            'id' => $wallpaper->getKey(),
+            'url' => $this->publicWallpaperUrl($wallpaper->path),
+            'path' => $wallpaper->path,
+            'extension' => $wallpaper->extension,
+            'style' => $wallpaper->style->value,
+        ];
     }
 }

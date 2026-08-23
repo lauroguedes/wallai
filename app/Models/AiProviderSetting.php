@@ -7,6 +7,7 @@ use Database\Factories\AiProviderSettingFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AiProviderSetting extends Model
 {
@@ -24,6 +25,7 @@ class AiProviderSetting extends Model
         'openai_api_key',
         'gemini_api_key',
         'ollama_url',
+        'user_id',
     ];
 
     /**
@@ -63,5 +65,11 @@ class AiProviderSetting extends Model
         $key = $this->getAttribute($attribute);
 
         return filled($key) ? $key : null;
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

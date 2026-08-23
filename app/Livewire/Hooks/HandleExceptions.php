@@ -3,6 +3,8 @@
 namespace App\Livewire\Hooks;
 
 use App\Exceptions\ServiceGeneratorException;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Livewire\ComponentHook;
 use Livewire\ComponentHookRegistry;
 use Mary\Traits\Toast;
@@ -34,6 +36,10 @@ class HandleExceptions extends ComponentHook
      */
     public function exception($e, $stopPropagation): void
     {
+        if ($e instanceof AuthorizationException || $e instanceof AuthenticationException) {
+            return;
+        }
+
         if (! in_array(Toast::class, class_uses_recursive($this->component))) {
             return;
         }

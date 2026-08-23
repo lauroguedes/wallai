@@ -6,16 +6,27 @@ use App\Enums\GenerationProvider;
 use App\Exceptions\MissingAiCredentialsException;
 use App\Models\AiProviderSetting;
 use App\Support\AiModelCatalog;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
 
 class AiProviderSettings
 {
     private const SESSION_KEY = 'ai_provider_settings_id';
 
-    public function __construct(private AiModelCatalog $models) {}
+    public function __construct(
+        private AiModelCatalog $models,
+        private ApplicationSetup $setup,
+    ) {}
 
     public function current(): ?AiProviderSetting
     {
+        if ($this->setup->authenticationEnabled()) {
+            return AiProviderSetting::query()
+                ->where('user_id', $this->authenticatedUserId())
+                ->first();
+        }
+
         $id = session()->get(self::SESSION_KEY);
 
         return is_string($id) ? AiProviderSetting::query()->find($id) : null;
@@ -62,9 +73,15 @@ class AiProviderSettings
             $settings->ollama_url = rtrim(trim($ollamaUrl), '/');
         }
 
+        if ($this->setup->authenticationEnabled()) {
+            $settings->user_id = $this->authenticatedUserId();
+        }
+
         $settings->save();
 
-        session()->put(self::SESSION_KEY, $settings->getKey());
+        if (! $this->setup->authenticationEnabled()) {
+            session()->put(self::SESSION_KEY, $settings->getKey());
+        }
 
         return $settings;
     }
@@ -73,6 +90,17 @@ class AiProviderSettings
     {
         $this->current()?->delete();
         session()->forget(self::SESSION_KEY);
+    }
+
+    private function authenticatedUserId(): int
+    {
+        $userId = Auth::id();
+
+        if ($userId === null) {
+            throw new AuthenticationException;
+        }
+
+        return (int) $userId;
     }
 
     public function removeKey(GenerationProvider $provider): ?AiProviderSetting
