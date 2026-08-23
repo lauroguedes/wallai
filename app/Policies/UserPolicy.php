@@ -11,7 +11,7 @@ class UserPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->is_admin;
+        return $user->is_active && $user->is_admin;
     }
 
     /**
@@ -19,7 +19,7 @@ class UserPolicy
      */
     public function view(User $user, User $model): bool
     {
-        return $user->is_admin || $user->is($model);
+        return $user->is_active && ($user->is_admin || $user->is($model));
     }
 
     /**
@@ -27,7 +27,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        return $user->is_admin;
+        return $user->is_active && $user->is_admin;
     }
 
     /**
@@ -35,7 +35,7 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        return $user->is_admin || $user->is($model);
+        return $user->is_active && ($user->is_admin || $user->is($model));
     }
 
     /**
@@ -43,7 +43,17 @@ class UserPolicy
      */
     public function delete(User $user, User $model): bool
     {
-        return $user->is_admin && ! $user->is($model);
+        return $user->is_active && $user->is_admin && ! $user->is($model) && ! $model->is_admin;
+    }
+
+    public function manageAccess(User $user, User $model): bool
+    {
+        return $user->is_active && $user->is_admin && ! $user->is($model) && ! $model->is_admin;
+    }
+
+    public function resendInvitation(User $user, User $model): bool
+    {
+        return $user->is_active && $user->is_admin && ! $model->is_admin && $model->email_verified_at === null;
     }
 
     /**

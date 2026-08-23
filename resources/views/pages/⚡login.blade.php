@@ -35,6 +35,7 @@ new class extends Component
         if (! Auth::attempt([
             'email' => $validated['email'],
             'password' => $validated['password'],
+            'is_active' => true,
         ], $validated['remember'])) {
             RateLimiter::hit($throttleKey, 60);
 
@@ -56,6 +57,10 @@ new class extends Component
         <div class="mb-7 flex justify-center"><x-logo /></div>
 
         <x-card title="Welcome back" subtitle="Sign in to your WallAI workspace." shadow separator>
+            @if(session('status'))
+                <x-alert icon="lucide.circle-alert" class="alert-warning mb-4" :title="session('status')" />
+            @endif
+
             <x-form wire:submit="login">
                 <x-input label="Email" wire:model="email" icon="lucide.mail" type="email" autocomplete="email" autofocus />
                 <x-password label="Password" wire:model="password" autocomplete="current-password" right />

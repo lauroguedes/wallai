@@ -98,6 +98,7 @@ return [
 
     'waits' => [
         'redis:default' => 60,
+        'redis:notifications' => 30,
     ],
 
     /*
@@ -207,7 +208,19 @@ return [
             'maxJobs' => 0,
             'memory' => 128,
             'tries' => 3,
-            'timeout' => 180,
+            'timeout' => 210,
+            'nice' => 0,
+        ],
+        'supervisor-notifications' => [
+            'connection' => 'redis',
+            'queue' => ['notifications'],
+            'balance' => false,
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 3,
+            'timeout' => 60,
             'nice' => 0,
         ],
     ],
@@ -219,11 +232,17 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+            'supervisor-notifications' => [
+                'maxProcesses' => (int) env('NOTIFICATION_QUEUE_PROCESSES', 1),
+            ],
         ],
 
         'local' => [
             'supervisor-wallpapers' => [
                 'maxProcesses' => (int) env('WALLPAPER_QUEUE_PROCESSES', 3),
+            ],
+            'supervisor-notifications' => [
+                'maxProcesses' => (int) env('NOTIFICATION_QUEUE_PROCESSES', 1),
             ],
         ],
     ],

@@ -10,6 +10,8 @@ new class extends Component
 {
     public bool $showAdminForm = false;
 
+    public bool $showSessionInstallModal = false;
+
     public string $name = '';
 
     public string $email = '';
@@ -25,6 +27,7 @@ new class extends Component
 
     public function installWithoutAuthentication(ApplicationSetup $setup): void
     {
+        $this->showSessionInstallModal = false;
         $setup->installWithoutAuthentication();
         session()->regenerate();
 
@@ -71,6 +74,7 @@ new class extends Component
                 <button
                     type="button"
                     wire:click="chooseAuthentication"
+                    wire:key="authenticated-install-choice-v2"
                     class="group rounded-3xl border border-primary/40 bg-base-100 p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary hover:shadow-md">
                     <div class="mb-5 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                         <x-icon name="lucide.shield-check" class="size-6" />
@@ -84,8 +88,8 @@ new class extends Component
 
                 <button
                     type="button"
-                    wire:click="installWithoutAuthentication"
-                    wire:confirm="Continue without authentication? This installation mode cannot be changed from the interface later."
+                    x-on:click="$wire.showSessionInstallModal = true"
+                    wire:key="session-install-choice-v2"
                     class="group rounded-3xl border border-base-300 bg-base-100 p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-base-content/30 hover:shadow-md">
                     <div class="mb-5 flex size-12 items-center justify-center rounded-2xl bg-base-200 text-base-content/70">
                         <x-icon name="lucide.monitor-smartphone" class="size-6" />
@@ -113,4 +117,37 @@ new class extends Component
             </x-card>
         @endif
     </div>
+
+    @teleport('body')
+        <x-modal
+            wire:model="showSessionInstallModal"
+            title="Install without authentication?"
+            subtitle="WallAI will use browser sessions instead of user accounts."
+            separator
+            box-class="max-w-lg">
+            <div class="flex flex-col gap-4">
+                <x-alert
+                    icon="lucide.triangle-alert"
+                    class="alert-warning"
+                    title="This mode cannot be changed from the interface"
+                    description="To choose authentication later, run php artisan wallai:reset. That command permanently deletes all users, sessions, generated images, provider settings, and queued jobs." />
+                <p class="text-sm text-base-content/70">Each browser session will keep its own settings and generated images without a login.</p>
+            </div>
+
+            <x-slot:actions>
+                <x-button
+                    type="button"
+                    wire:click="$set('showSessionInstallModal', false)"
+                    class="btn-ghost"
+                    label="Cancel" />
+                <x-button
+                    type="button"
+                    wire:click="installWithoutAuthentication"
+                    spinner="installWithoutAuthentication"
+                    icon="lucide.monitor-smartphone"
+                    class="btn-warning"
+                    label="Install without authentication" />
+            </x-slot:actions>
+        </x-modal>
+    @endteleport
 </div>

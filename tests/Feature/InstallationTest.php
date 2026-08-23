@@ -15,11 +15,33 @@ it('redirects the first request to setup', function () {
     $this->get('/setup')
         ->assertOk()
         ->assertSee('Use authentication')
-        ->assertSee('Use browser sessions');
+        ->assertSee('Use browser sessions')
+        ->assertSee('php artisan wallai:reset')
+        ->assertDontSee('You can reset this choice from the command line');
+});
+
+it('keeps the setup session stable while rendering installation choices', function () {
+    session()->start();
+
+    $previousSessionId = session()->getId();
+    $previousCsrfToken = session()->token();
+
+    Livewire::test('pages::setup');
+
+    expect(session()->getId())->toBe($previousSessionId)
+        ->and(session()->token())->toBe($previousCsrfToken)
+        ->and(config('session.cookie'))->toBe('wallai_session');
 });
 
 it('installs in session mode without creating a user', function () {
     Livewire::test('pages::setup')
+        ->assertSet('showSessionInstallModal', false)
+        ->set('showSessionInstallModal', true)
+        ->assertSee('Install without authentication?')
+        ->assertSee('This mode cannot be changed from the interface')
+        ->assertSeeHtml('wire:click="chooseAuthentication"')
+        ->assertSeeHtml('x-on:click="$wire.showSessionInstallModal = true"')
+        ->assertDontSeeHtml('wire:confirm')
         ->call('installWithoutAuthentication')
         ->assertRedirect(route('home'));
 
@@ -34,6 +56,7 @@ it('creates the first user as the administrator', function () {
     Livewire::test('pages::setup')
         ->call('chooseAuthentication')
         ->assertSet('showAdminForm', true)
+        ->assertSeeHtml('wire:click="$set(\'showAdminForm\', false)"')
         ->set('name', 'Admin User')
         ->set('email', 'ADMIN@example.com')
         ->set('password', 'correct horse battery staple')

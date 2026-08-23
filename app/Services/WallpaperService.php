@@ -10,6 +10,7 @@ use App\Enums\GenerationProvider;
 use App\Exceptions\MissingAiCredentialsException;
 use App\Exceptions\ServiceGeneratorException;
 use App\Jobs\GenerateWallpaper;
+use App\Models\User;
 use App\Models\Wallpaper;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
@@ -78,6 +79,25 @@ class WallpaperService
      */
     public function resetSession(string $sessionId): void
     {
+        $this->purgeWorkspace($sessionId);
+        $this->providerSettings->forget();
+
+        if (! str_starts_with($sessionId, 'user:')) {
+            session()->invalidate();
+            session()->regenerateToken();
+        }
+    }
+
+    public function deleteUserWorkspace(User $user): void
+    {
+        $workspaceKey = "user:{$user->getKey()}";
+
+        $this->purgeWorkspace($workspaceKey);
+        $user->delete();
+    }
+
+    private function purgeWorkspace(string $sessionId): void
+    {
         Cache::lock($this->sessionLockKey($sessionId), 10)->block(5, function () use ($sessionId): void {
             $jobIds = Cache::get($this->jobRegistryKey($sessionId), []);
 
@@ -107,13 +127,7 @@ class WallpaperService
 
             Wallpaper::query()->ownedByWorkspace($sessionId)->delete();
             Storage::disk('public')->deleteDirectory($this->workspace->storageDirectory($sessionId));
-            $this->providerSettings->forget();
         });
-
-        if (! str_starts_with($sessionId, 'user:')) {
-            session()->invalidate();
-            session()->regenerateToken();
-        }
     }
 
     public function sessionWasReset(string $sessionId): bool

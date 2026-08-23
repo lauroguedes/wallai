@@ -59,8 +59,30 @@ it('rejects invalid credentials', function () {
     $this->assertGuest();
 });
 
+it('rejects credentials for an inactive user', function () {
+    $user = User::factory()->inactive()->create(['password' => 'password-for-wallai']);
+
+    Livewire::test('pages::login')
+        ->set('email', $user->email)
+        ->set('password', 'password-for-wallai')
+        ->call('login')
+        ->assertHasErrors(['email']);
+
+    $this->assertGuest();
+});
+
+it('logs out a user whose account was deactivated', function () {
+    $user = User::factory()->inactive()->create();
+
+    $this->actingAs($user)
+        ->get('/')
+        ->assertRedirect(route('login'));
+
+    $this->assertGuest();
+});
+
 it('activates an invited account with its token', function () {
-    $user = User::factory()->unverified()->create([
+    $user = User::factory()->inactive()->unverified()->create([
         'password' => str()->random(64),
     ]);
     $token = Password::broker()->createToken($user);
@@ -76,6 +98,7 @@ it('activates an invited account with its token', function () {
     $user->refresh();
 
     expect($user->email_verified_at)->not->toBeNull()
+        ->and($user->is_active)->toBeTrue()
         ->and(Hash::check('a strong invited password', $user->password))->toBeTrue()
         ->and(Auth::id())->toBe($user->id);
 });

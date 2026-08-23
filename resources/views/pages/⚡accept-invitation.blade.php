@@ -43,6 +43,7 @@ new class extends Component
             $user->forceFill([
                 'password' => $password,
                 'email_verified_at' => now(),
+                'is_active' => true,
                 'remember_token' => Str::random(60),
             ])->save();
 

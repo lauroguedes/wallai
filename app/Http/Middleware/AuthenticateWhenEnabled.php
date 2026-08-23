@@ -14,8 +14,18 @@ class AuthenticateWhenEnabled
 
     public function handle(Request $request, Closure $next): Response
     {
-        if ($this->setup->authenticationEnabled() && Auth::guest()) {
-            return redirect()->guest(route('login'));
+        if ($this->setup->authenticationEnabled()) {
+            if (Auth::guest()) {
+                return redirect()->guest(route('login'));
+            }
+
+            if (! Auth::user()->is_active) {
+                Auth::guard('web')->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return redirect()->route('login')->with('status', 'Your account has been deactivated.');
+            }
         }
 
         return $next($request);

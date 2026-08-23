@@ -7,6 +7,7 @@ use App\Enums\GenerationProvider;
 use App\Jobs\GenerateWallpaper;
 use App\Models\AiProviderSetting;
 use App\Models\ApplicationSetting;
+use App\Models\User;
 use App\Services\WallpaperService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -43,6 +44,21 @@ it('renders the provider settings drawer with independent capability selectors',
         ->assertSee('Ollama')
         ->assertSeeHtml('grid grid-cols-1 gap-4 sm:grid-cols-2')
         ->assertSee('Google Gemini');
+});
+
+it('separates provider and account settings with Mary UI tabs', function () {
+    ApplicationSetting::query()->update(['mode' => ApplicationMode::Authenticated]);
+    $admin = User::factory()->admin()->create();
+
+    Livewire::actingAs($admin)
+        ->test('provider-settings')
+        ->assertSet('selectedTab', 'providers-tab')
+        ->assertSee($admin->name)
+        ->assertSee('data-tip="Settings"', escape: false)
+        ->assertSee("aria-label=\"Settings for {$admin->name}\"", escape: false)
+        ->assertSee('Provider Selection')
+        ->assertSee('Account')
+        ->assertSeeLivewire('account-settings');
 });
 
 it('only offers providers that support each generation capability', function () {
@@ -187,6 +203,23 @@ it('keeps an existing key when its input is left blank', function () {
         ->and($settings->gemini_api_key)->toBe('first-gemini-key');
 });
 
+it('uses a Mary UI modal before removing a saved provider key', function () {
+    Livewire::test('provider-settings')
+        ->set('openAiApiKey', 'first-openai-key')
+        ->set('geminiApiKey', 'first-gemini-key')
+        ->call('save')
+        ->call('requestKeyRemoval', GenerationProvider::OpenAI->value)
+        ->assertSet('showRemoveKeyModal', true)
+        ->assertSet('pendingKeyProvider', GenerationProvider::OpenAI->value)
+        ->assertSee('Remove saved API key?')
+        ->assertDontSeeHtml('wire:confirm')
+        ->call('confirmKeyRemoval')
+        ->assertHasNoErrors()
+        ->assertSet('showRemoveKeyModal', false);
+
+    expect(AiProviderSetting::query()->sole()->openai_api_key)->toBeNull();
+});
+
 it('uses environment keys as a backwards compatible fallback', function () {
     config(['ai.providers.gemini.key' => 'server-gemini-key']);
 
@@ -282,5 +315,7 @@ it('renders the settings button on the home page', function () {
     $response = $this->get('/');
 
     $response->assertSuccessful()
-        ->assertSee('AI provider settings');
+        ->assertSee('data-tip="Settings"', escape: false)
+        ->assertSee('aria-label="Settings"', escape: false)
+        ->assertDontSee('AI provider settings');
 });

@@ -19,6 +19,10 @@ new class extends Component {
 
     public bool $showResetModal = false;
 
+    public bool $showRemoveKeyModal = false;
+
+    public ?string $pendingKeyProvider = null;
+
     public string $textProvider = GenerationProvider::Gemini->value;
 
     public string $textModel = '';
@@ -42,6 +46,8 @@ new class extends Component {
     public bool $hasStoredGeminiKey = false;
 
     public bool $authenticationEnabled = false;
+
+    public string $selectedTab = 'providers-tab';
 
     public function mount(AiProviderSettings $settings, ApplicationSetup $setup): void
     {
@@ -125,6 +131,7 @@ new class extends Component {
     #[On('open-provider-settings')]
     public function openDrawer(): void
     {
+        $this->selectedTab = 'providers-tab';
         $this->showDrawer = true;
     }
 
@@ -226,6 +233,37 @@ new class extends Component {
         $this->success("Saved {$generationProvider->label()} key removed.");
     }
 
+    public function requestKeyRemoval(string $provider, AiProviderSettings $settings): void
+    {
+        $generationProvider = GenerationProvider::tryFrom($provider);
+
+        if ($generationProvider === null || ! $settings->hasStoredKey($generationProvider, $settings->current())) {
+            throw ValidationException::withMessages([
+                'provider' => 'The selected provider does not have a saved key.',
+            ]);
+        }
+
+        $this->pendingKeyProvider = $generationProvider->value;
+        $this->showRemoveKeyModal = true;
+    }
+
+    public function confirmKeyRemoval(AiProviderSettings $settings): void
+    {
+        if (! $this->showRemoveKeyModal || $this->pendingKeyProvider === null) {
+            throw ValidationException::withMessages([
+                'provider' => 'Select a provider key before confirming removal.',
+            ]);
+        }
+
+        $this->removeKey($this->pendingKeyProvider, $settings);
+        $this->reset('showRemoveKeyModal', 'pendingKeyProvider');
+    }
+
+    public function cancelKeyRemoval(): void
+    {
+        $this->reset('showRemoveKeyModal', 'pendingKeyProvider');
+    }
+
     public function resetSession(WallpaperService $wallpapers, WorkspaceContext $workspace): void
     {
         $wallpapers->resetSession($workspace->key());
@@ -246,12 +284,22 @@ new class extends Component {
 ?>
 
 <div>
-    <x-button
-        wire:click="$toggle('showDrawer')"
-        icon="lucide.settings"
-        class="btn-circle btn-soft fixed right-5 top-5 z-30 border border-base-200 bg-base-100/60 backdrop-blur-md"
-        tooltip-left="AI provider settings"
-        aria-label="AI provider settings" />
+    @if($authenticationEnabled)
+        <x-button
+            wire:click="$toggle('showDrawer')"
+            icon="lucide.settings"
+            label="{{ auth()->user()->name }}"
+            class="btn-soft fixed right-5 top-5 z-30 max-w-[min(16rem,calc(100vw-2.5rem))] border border-base-200 bg-base-100/60 backdrop-blur-md"
+            tooltip-left="Settings"
+            aria-label="Settings for {{ auth()->user()->name }}" />
+    @else
+        <x-button
+            wire:click="$toggle('showDrawer')"
+            icon="lucide.settings"
+            class="btn-circle btn-soft fixed right-5 top-5 z-30 border border-base-200 bg-base-100/60 backdrop-blur-md"
+            tooltip-left="Settings"
+            aria-label="Settings" />
+    @endif
 
     @teleport('body')
         <x-drawer
@@ -262,7 +310,9 @@ new class extends Component {
             withCloseButton
             closeOnEscape
             class="w-11/12 md:w-[30rem]">
-            <x-form wire:submit="save" class="flex flex-col gap-6">
+            <x-tabs wire:model="selectedTab" active-class="text-primary" content-class="pt-6">
+                <x-tab name="providers-tab" label="Provider Selection" icon="lucide.sparkles">
+                    <x-form wire:submit="save" class="flex flex-col gap-6">
                 <x-alert
                     icon="lucide.shield-check"
                     class="alert-info"
@@ -357,8 +407,7 @@ new class extends Component {
                             @if($hasStoredOpenAiKey)
                                 <x-button
                                     type="button"
-                                    wire:click="removeKey('openai')"
-                                    wire:confirm="Remove the saved OpenAI key?"
+                                    wire:click="requestKeyRemoval('openai')"
                                     icon="lucide.trash-2"
                                     class="btn-ghost btn-sm text-error"
                                     label="Remove" />
@@ -384,8 +433,7 @@ new class extends Component {
                             @if($hasStoredGeminiKey)
                                 <x-button
                                     type="button"
-                                    wire:click="removeKey('gemini')"
-                                    wire:confirm="Remove the saved Gemini key?"
+                                    wire:click="requestKeyRemoval('gemini')"
                                     icon="lucide.trash-2"
                                     class="btn-ghost btn-sm text-error"
                                     label="Remove" />
@@ -416,29 +464,62 @@ new class extends Component {
                     </section>
                 @endif
 
-                <x-slot:actions>
-                    <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-                        <x-button
-                            type="button"
-                            wire:click="$set('showResetModal', true)"
-                            icon="lucide.rotate-ccw"
-                            class="btn-ghost text-error"
-                            label="{{ $authenticationEnabled ? 'Reset workspace' : 'Reset session' }}" />
-                        <x-button
-                            type="submit"
-                            spinner="save"
-                            icon="lucide.save"
-                            class="btn-primary"
-                            label="Save settings" />
-                    </div>
-                </x-slot:actions>
-            </x-form>
+                        <x-slot:actions>
+                            <div class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                                <x-button
+                                    type="button"
+                                    wire:click="$set('showResetModal', true)"
+                                    icon="lucide.rotate-ccw"
+                                    class="btn-ghost text-error"
+                                    label="{{ $authenticationEnabled ? 'Reset workspace' : 'Reset session' }}" />
+                                <x-button
+                                    type="submit"
+                                    spinner="save"
+                                    icon="lucide.save"
+                                    class="btn-primary"
+                                    label="Save settings" />
+                            </div>
+                        </x-slot:actions>
+                    </x-form>
+                </x-tab>
 
-            @if($authenticationEnabled)
-                <div class="divider my-6">Account</div>
-                <livewire:account-settings />
-            @endif
+                @if($authenticationEnabled)
+                    <x-tab name="account-tab" label="Account" icon="lucide.user-round-cog">
+                        <livewire:account-settings />
+                    </x-tab>
+                @endif
+            </x-tabs>
         </x-drawer>
+    @endteleport
+
+    @teleport('body')
+        <x-modal
+            wire:model="showRemoveKeyModal"
+            title="Remove saved API key?"
+            subtitle="The provider may stop working immediately."
+            separator
+            box-class="max-w-lg">
+            <x-alert
+                icon="lucide.triangle-alert"
+                class="alert-warning"
+                title="This credential will be permanently removed"
+                description="WallAI will fall back to the server environment key when one exists. Otherwise, you must add a new key before using this provider again." />
+
+            <x-slot:actions>
+                <x-button
+                    type="button"
+                    wire:click="cancelKeyRemoval"
+                    class="btn-ghost"
+                    label="Cancel" />
+                <x-button
+                    type="button"
+                    wire:click="confirmKeyRemoval"
+                    spinner="confirmKeyRemoval"
+                    icon="lucide.trash-2"
+                    class="btn-error"
+                    label="Remove API key" />
+            </x-slot:actions>
+        </x-modal>
     @endteleport
 
     @teleport('body')

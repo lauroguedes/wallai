@@ -16,6 +16,14 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
+     * @var array<string, bool>
+     */
+    protected $attributes = [
+        'is_admin' => false,
+        'is_active' => true,
+    ];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
@@ -26,6 +34,7 @@ class User extends Authenticatable
         'password',
         'email_verified_at',
         'is_admin',
+        'is_active',
     ];
 
     /**
@@ -48,6 +57,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'is_admin' => 'boolean',
+            'is_active' => 'boolean',
             'password' => 'hashed',
         ];
     }
