@@ -13,7 +13,24 @@ RUN npm run build
 
 FROM composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 AS composer
 
-FROM dunglas/frankenphp:1-php8.5-bookworm@sha256:8896df27f5fe22f4be4628a2cabfc9959229e1010b2890019f6768139a3dfbcf AS php-runtime
+FROM dunglas/frankenphp:1.12.7-builder-php8.5-bookworm@sha256:48f74f8e25f053bd9381220f0487c064d8835eaf6f794f1d197531d4d3fcc798 AS frankenphp-builder
+
+COPY docker/frankenphp/main.go /go/src/app/caddy/frankenphp/main.go
+
+WORKDIR /go/src/app/caddy
+
+RUN go get google.golang.org/grpc@v1.82.1 \
+    && go mod tidy
+
+WORKDIR /go/src/app/caddy/frankenphp
+
+RUN GOBIN=/usr/local/bin ../../go.sh install \
+    -ldflags "-w -s -X 'github.com/caddyserver/caddy/v2.CustomVersion=FrankenPHP v1.12.7 PHP $PHP_VERSION Caddy' -X 'github.com/caddyserver/caddy/v2.CustomBinaryName=frankenphp' -X 'github.com/caddyserver/caddy/v2/modules/caddyhttp.ServerHeader=FrankenPHP Caddy'" \
+    -buildvcs=true
+
+FROM dunglas/frankenphp:1.12.7-php8.5-bookworm@sha256:8896df27f5fe22f4be4628a2cabfc9959229e1010b2890019f6768139a3dfbcf AS php-runtime
+
+COPY --from=frankenphp-builder /usr/local/bin/frankenphp /usr/local/bin/frankenphp
 
 RUN install-php-extensions \
     curl \
@@ -26,7 +43,7 @@ RUN install-php-extensions \
     pdo_sqlite \
     redis \
     zip \
-    && setcap -r /usr/local/bin/frankenphp
+    && if [ -n "$(getcap /usr/local/bin/frankenphp)" ]; then setcap -r /usr/local/bin/frankenphp; fi
 
 FROM php-runtime AS composer-dependencies
 
@@ -87,7 +104,9 @@ ENV APP_ENV=production \
     LOG_CHANNEL=stderr \
     LOG_LEVEL=info \
     SERVER_NAME=:8080 \
-    WALLAI_VERSION=${WALLAI_VERSION}
+    WALLAI_VERSION=${WALLAI_VERSION} \
+    XDG_CONFIG_HOME=/tmp/caddy/config \
+    XDG_DATA_HOME=/tmp/caddy/data
 
 USER 33:33
 

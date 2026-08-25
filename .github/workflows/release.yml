@@ -36,8 +36,8 @@ jobs:
           php artisan key:generate
           touch database/database.sqlite
           php artisan migrate --force
-          php artisan test --compact
           npm run build
+          php artisan test --compact
 
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
 

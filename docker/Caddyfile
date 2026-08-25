@@ -1,29 +1,31 @@
 {
-    admin off
-    auto_https off
+	admin off
+	auto_https off
+	persist_config off
+	storage file_system /tmp/caddy/storage
 
-    servers {
-        trusted_proxies static private_ranges
-    }
+	servers {
+		trusted_proxies static private_ranges
+	}
 }
 
 {$SERVER_NAME::8080} {
-    root * /app/public
-    encode zstd br gzip
+	root * /app/public
+	encode zstd br gzip
 
-    header {
-        -Server
-        -X-Powered-By
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "SAMEORIGIN"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"
-    }
+	header {
+		-Server
+		-X-Powered-By
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
 
-    php_server
+	php_server
 
-    log {
-        output stdout
-        format json
-    }
+	log {
+		output stdout
+		format json
+	}
 }

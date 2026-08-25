@@ -49,6 +49,9 @@ jobs:
           touch database/database.sqlite
           php artisan migrate --force
 
+      - name: Build frontend
+        run: npm run build
+
       - name: Run tests
         run: php artisan test --compact
 
@@ -56,9 +59,6 @@ jobs:
         run: |
           vendor/bin/pint --format agent
           git diff --exit-code
-
-      - name: Build frontend
-        run: npm run build
 
       - name: Audit dependencies
         run: |
@@ -97,13 +97,17 @@ jobs:
         run: docker build --build-arg WALLAI_VERSION=ci --build-arg WALLAI_REVISION="$GITHUB_SHA" --tag wallai:ci .
 
       - name: Scan image
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-        with:
-          image-ref: wallai:ci
-          format: table
-          exit-code: '1'
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
+        run: |
+          docker run --rm \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
+            image \
+            --exit-code 1 \
+            --ignore-unfixed \
+            --no-progress \
+            --scanners vuln \
+            --severity CRITICAL,HIGH \
+            wallai:ci
 
       - name: Start clean stack
         run: docker compose up --detach --wait

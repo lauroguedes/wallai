@@ -14,6 +14,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | docker/**, docker/*.sh | .ai/rules/docker.md |
 | Dockerfile | .ai/rules/dockerfile.md |
 | app/Enums/** | .ai/rules/enums.md |
+| docker/frankenphp/** | .ai/rules/frankenphp.md |
 | compose*.yaml | .ai/rules/general.md |
 | app/Http/Middleware/**, resources/views/pages/**, routes/web.php | .ai/rules/pages.md |
 | resources/views/** | .ai/rules/resources-views.md |
