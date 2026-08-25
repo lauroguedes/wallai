@@ -8,6 +8,7 @@ use App\Models\AiProviderSetting;
 use App\Support\AiModelCatalog;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class AiProviderSettings
@@ -52,6 +53,12 @@ class AiProviderSettings
 
         if (! $imageProvider->supports(GenerationProvider::IMAGE)) {
             throw new InvalidArgumentException("{$imageProvider->label()} does not support image generation.");
+        }
+
+        if ($textProvider === GenerationProvider::Ollama
+            && filled($ollamaUrl)
+            && ! $this->isOllamaHostAllowed((string) $ollamaUrl)) {
+            throw new InvalidArgumentException('The Ollama server host is not allowed by this installation.');
         }
 
         $settings = $this->current() ?? new AiProviderSetting;
@@ -166,7 +173,28 @@ class AiProviderSettings
         $url = $settings?->ollama_url
             ?? config('ai.providers.ollama.url', 'http://localhost:11434');
 
-        return rtrim((string) $url, '/');
+        $url = rtrim((string) $url, '/');
+
+        if (! $this->isOllamaHostAllowed($url)) {
+            throw new InvalidArgumentException('The Ollama server host is not allowed by this installation.');
+        }
+
+        return $url;
+    }
+
+    public function isOllamaHostAllowed(string $url): bool
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        if (! is_string($host)) {
+            return false;
+        }
+
+        $normalizedHost = Str::lower(trim($host, '[]'));
+        $allowedHosts = collect(config('ai.ollama_allowed_hosts', []))
+            ->map(fn (mixed $allowedHost): string => Str::lower(trim((string) $allowedHost, '[]')));
+
+        return $allowedHosts->containsStrict($normalizedHost);
     }
 
     /**

@@ -54,6 +54,20 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'version' => env('WALLAI_VERSION', 'dev'),
+
+    'self_hosted_domain' => env('WALLAI_DOMAIN'),
+
+    'trusted_proxies' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', env('TRUSTED_PROXIES', '')),
+    ))),
+
+    'trusted_hosts' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', env('TRUSTED_HOSTS', '')),
+    ))),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

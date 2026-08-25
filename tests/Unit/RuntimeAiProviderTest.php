@@ -75,3 +75,14 @@ it('configures Ollama with a custom URL without requiring an API key', function 
 
     expect(config("ai.providers.{$alias}"))->toBeNull();
 });
+
+it('refuses to contact an Ollama host outside the installation allowlist', function () {
+    $settings = new AiProviderSetting;
+    $settings->ollama_url = 'http://metadata.internal:11434';
+
+    app(RuntimeAiProvider::class)->using(
+        GenerationProvider::Ollama,
+        $settings,
+        fn (string $provider): string => $provider,
+    );
+})->throws(InvalidArgumentException::class, 'The Ollama server host is not allowed');

@@ -130,6 +130,18 @@ it('validates the Ollama server URL', function () {
     expect(AiProviderSetting::query()->exists())->toBeFalse();
 });
 
+it('rejects an Ollama host outside the installation allowlist', function () {
+    config(['ai.providers.gemini.key' => 'server-gemini-key']);
+
+    Livewire::test('provider-settings')
+        ->set('textProvider', GenerationProvider::Ollama->value)
+        ->set('ollamaUrl', 'http://metadata.internal:11434')
+        ->call('save')
+        ->assertHasErrors(['ollamaUrl']);
+
+    expect(AiProviderSetting::query()->exists())->toBeFalse();
+});
+
 it('rejects Ollama as an image provider', function () {
     Livewire::test('provider-settings')
         ->set('imageProvider', GenerationProvider::Ollama->value)

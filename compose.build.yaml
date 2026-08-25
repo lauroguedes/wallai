@@ -1,0 +1,7 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        WALLAI_VERSION: ${WALLAI_VERSION:-dev}
+        WALLAI_REVISION: ${WALLAI_REVISION:-local}

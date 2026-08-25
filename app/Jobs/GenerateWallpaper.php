@@ -16,10 +16,12 @@ class GenerateWallpaper implements ShouldQueue
 {
     use Queueable;
 
+    public const int TIMEOUT = 180;
+
     /**
      * The number of seconds the job can run before timing out.
      */
-    public int $timeout = 180;
+    public int $timeout = self::TIMEOUT;
 
     /**
      * The number of times the job may be attempted.

@@ -170,6 +170,11 @@ new class extends Component {
                 'string',
                 'url:http,https',
                 'max:2048',
+                function (string $attribute, mixed $value, \Closure $fail) use ($settings): void {
+                    if (filled($value) && ! $settings->isOllamaHostAllowed((string) $value)) {
+                        $fail('This Ollama server host is not allowed by the installation administrator.');
+                    }
+                },
             ],
         ]);
 

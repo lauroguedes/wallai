@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Livewire\Hooks\HandleExceptions;
 use App\Services\WallpaperService;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 
@@ -22,6 +23,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $trustedProxies = config('app.trusted_proxies');
+
+        if ($trustedProxies !== []) {
+            TrustProxies::at($trustedProxies === ['*'] ? '*' : $trustedProxies);
+        }
+
         Livewire::componentHook(HandleExceptions::class);
     }
 }

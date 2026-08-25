@@ -1,0 +1,183 @@
+x-wallai-service: &wallai-service
+  image: ${WALLAI_IMAGE:-ghcr.io/lauroguedes/wallai}:${WALLAI_VERSION:-latest}
+  env_file:
+    - ${WALLAI_ENV_FILE:-.env}
+  environment:
+    APP_KEY_FILE: /run/secrets/app_key
+    REDIS_PASSWORD_FILE: /run/secrets/redis_password
+  secrets:
+    - app_key
+    - redis_password
+  volumes:
+    - wallai_data:/var/lib/wallai
+    - wallai_wallpapers:/app/storage/app/public/wallpapers
+  tmpfs:
+    - /tmp:uid=33,gid=33,mode=1770
+    - /app/bootstrap/cache:uid=33,gid=33,mode=0770
+    - /app/storage/framework:uid=33,gid=33,mode=0770
+    - /app/storage/logs:uid=33,gid=33,mode=0770
+  networks:
+    - wallai
+  extra_hosts:
+    - host.docker.internal:host-gateway
+  init: true
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 256
+  logging:
+    driver: local
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  init:
+    <<: *wallai-service
+    command: ["wallai-initialize"]
+    restart: "no"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  web:
+    <<: *wallai-service
+    restart: unless-stopped
+    ports:
+      - "${WALLAI_BIND_ADDRESS:-127.0.0.1}:${WALLAI_PORT:-8080}:8080"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "$$status = @file_get_contents('http://127.0.0.1:8080/up'); exit($$status === false ? 1 : 0);"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    stop_grace_period: 30s
+
+  horizon:
+    <<: *wallai-service
+    command: ["php", "artisan", "horizon"]
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php artisan horizon:status | grep -q running"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 5m
+
+  scheduler:
+    <<: *wallai-service
+    command: ["php", "artisan", "schedule:work"]
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "artisan", "wallai:doctor", "--runtime"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 90s
+
+  proxy:
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    profiles:
+      - https
+    restart: unless-stopped
+    environment:
+      WALLAI_DOMAIN: ${WALLAI_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/Caddyfile.proxy:/etc/caddy/Caddyfile:ro
+      - wallai_caddy_data:/data
+      - wallai_caddy_config:/config
+    networks:
+      - wallai
+    depends_on:
+      web:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    pids_limit: 100
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  redis:
+    image: redis:8.2-alpine@sha256:30abb90e62f14b737010746def3ba99cc79fe19dcdb3d37b41f21fc62e7da19d
+    command:
+      - /bin/sh
+      - -ec
+      - exec /bin/setpriv --reuid redis --regid redis --clear-groups redis-server --appendonly yes --appendfsync everysec --requirepass "$$(cat /run/secrets/redis_password)"
+    restart: unless-stopped
+    secrets:
+      - redis_password
+    volumes:
+      - wallai_redis:/data
+    networks:
+      - wallai
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$(cat /run/secrets/redis_password) redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+    pids_limit: 100
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  wallai:
+    driver: bridge
+
+volumes:
+  wallai_data:
+  wallai_wallpapers:
+  wallai_redis:
+  wallai_caddy_data:
+  wallai_caddy_config:
+
+secrets:
+  app_key:
+    file: ${WALLAI_SECRETS_DIR:-./.secrets}/app_key
+  redis_password:
+    file: ${WALLAI_SECRETS_DIR:-./.secrets}/redis_password

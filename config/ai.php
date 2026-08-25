@@ -38,6 +38,11 @@ return [
         ],
     ],
 
+    'ollama_allowed_hosts' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', env('OLLAMA_ALLOWED_HOSTS', 'localhost,127.0.0.1,::1,host.docker.internal,ollama')),
+    ))),
+
     /*
     |--------------------------------------------------------------------------
     | AI Providers

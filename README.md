@@ -1,109 +1,83 @@
-# WallAI - AI Wallpaper Generator
+# WallAI
 
-Generate unique, AI-powered wallpapers for mobile and desktop using 🍌Nano Banana 2 and the Laravel AI SDK. Choose from 18 curated styles, customize your prompt, and download high-resolution images ready to use.
-
-https://github.com/user-attachments/assets/e3cb9a41-5b38-4c46-85cd-d66346173d51
+WallAI is a self-hosted AI wallpaper generator built with Laravel 13, Livewire 4, and the Laravel AI SDK. It supports OpenAI and Google for text and image generation, plus Ollama for local text models.
 
 ## Features
 
-- **21 Curated Styles** — Minimal Geometric, Botanical Watercolor, Abstract Fluid Art, Cyberpunk, Manga/Anime, Natural Landscape, Photo Realist, Surrealism, Steampunk, and more
-- **Mobile & Desktop** — Generate wallpapers in portrait (9:16) or landscape (16:9) at up to 4K resolution
-- **AI Prompt Generator** — Auto-generate creative prompts with optional context from your own text
-- **Real-Time Preview** — Phone mockup for mobile, monitor mockup for desktop, with frosted glass background effect
-- **Structured Prompts** — The AI agent produces detailed JSON prompts covering subject, scene, lighting, camera, and negative prompts for high-quality results
-- **Queue-Based Generation** — Background processing via Laravel Horizon with dedicated mobile/desktop queues
-- **Session-Based Storage** — Wallpapers are stored per session with thumbnail gallery, selection, and deletion
-- **Responsive UI** — Fullscreen preview on mobile devices, drawer sidebar on tablet/desktop
-- **Download & Instructions** — One-tap download with "Set as Wallpaper" instructions on mobile
+- Generate mobile and desktop wallpapers in 21 curated styles.
+- Configure providers, models, and personal API keys in the application.
+- Run with authenticated multi-user workspaces or private browser sessions.
+- Invite and manage users when authentication is enabled.
+- Process image generation and invitations through dedicated Horizon queues.
+- Install on any Docker host without installing PHP, Composer, Node.js, or Redis.
 
-## Tech Stack
+## Docker quick start
 
-- **[Laravel 12](https://laravel.com)** — Backend framework
-- **[Livewire v4](https://livewire.laravel.com)** — Reactive single-file components
-- **[Laravel AI SDK](https://github.com/laravel/ai)** — AI agents for prompt and image generation (🍌Nano Banana 2)
-- **[Laravel Horizon](https://laravel.com/docs/horizon)** — Queue monitoring and management
-- **[MaryUI](https://mary-ui.com) / [DaisyUI](https://daisyui.com)** — UI component library
-- **[Tailwind CSS v4](https://tailwindcss.com)** — Utility-first styling
-- **[Pest](https://pestphp.com)** — Testing framework
-
-## Prerequisites
-
-- PHP >= 8.4
-- Node.js & NPM
-- Redis (required for Horizon queues)
-- [Google Gemini API key](https://ai.google.dev/)
-
-## Installation
-
-1. Clone and install dependencies:
+Requirements: Docker Engine 20.10 or newer, Docker Compose 2.15 or newer, and at least 2 GB of available memory.
 
 ```bash
 git clone https://github.com/lauroguedes/wallai.git
 cd wallai
-composer install
-npm install
+./bin/wallai install
 ```
 
-2. Set up environment:
+Open `http://localhost:8080` and complete the first-run setup. The default port only listens on the host loopback interface.
+
+For a public server, configure a domain before installing:
 
 ```bash
-cp .env.example .env
-php artisan key:generate
+cp .env.docker.example .env
 ```
 
-3. Configure your API key in `.env`:
+Set these values in `.env`:
 
-```
-GEMINI_API_KEY=your_gemini_api_key
+```dotenv
+APP_URL=https://wallai.example.com
+WALLAI_DOMAIN=wallai.example.com
+SESSION_SECURE_COOKIE=true
+TRUSTED_HOSTS=wallai.example.com
 ```
 
-4. Run migrations and build assets:
+Point the domain to the server, allow TCP ports 80 and 443, then run:
 
 ```bash
-php artisan migrate
-npm run build
+./bin/wallai install
 ```
 
-5. Start the application:
+WallAI will start its automatic HTTPS proxy and obtain a certificate from Let's Encrypt.
+
+## Management
 
 ```bash
-composer run dev
+./bin/wallai status
+./bin/wallai logs
+./bin/wallai doctor
+./bin/wallai backup
+./bin/wallai update
 ```
 
-This starts the web server, queue worker, log viewer, and Vite dev server concurrently.
+Run `./bin/wallai help` for every available command.
 
-## Configuration
+## Documentation
 
-### Queue Processing
+- [Self-hosting quick start](docs/self-hosting/quick-start.md)
+- [Configuration reference](docs/self-hosting/configuration.md)
+- [Architecture and persisted data](docs/self-hosting/architecture.md)
+- [HTTPS and reverse proxies](docs/self-hosting/reverse-proxy.md)
+- [Ollama](docs/self-hosting/ollama.md)
+- [Backup and restore](docs/self-hosting/backup-restore.md)
+- [Upgrading](docs/self-hosting/upgrading.md)
+- [Security](docs/self-hosting/security.md)
+- [Troubleshooting](docs/self-hosting/troubleshooting.md)
+- [Development](docs/development.md)
+- [Maintainer release process](docs/releasing.md)
+- [Changelog](CHANGELOG.md)
+- [Security policy](SECURITY.md)
 
-Wallpaper generation runs on dedicated queues (`wallpapers-mobile` and `wallpapers-desktop`). Configure the number of concurrent workers in `.env`:
+## Local development
 
-```
-WALLPAPER_QUEUE_PROCESSES=3
-```
-
-Monitor queues via Horizon at `/horizon`.
-
-### AI Providers
-
-The default image and prompt provider is Google Gemini. Provider configuration lives in `config/ai.php`.
-
-## Usage
-
-1. Open the app in your browser
-2. Pick a wallpaper style from the sidebar
-3. Optionally write a description — the AI prompt generator will use it as context
-4. Click the dice icon to auto-generate a prompt, or write your own
-5. Hit **Generate** and wait for the result
-6. Switch between **Mobile** and **Desktop** tabs to generate for different devices
-7. Browse your generated wallpapers in the thumbnail gallery
-8. Download directly to your device
+The application requires PHP 8.4 or newer, Node.js, and Redis for local development. See the [development guide](docs/development.md).
 
 ## License
 
-[MIT](LICENSE)
-
----
-Please if you find this project helpful, consider giving it a ⭐ on GitHub!
-
-Crafted by artisan ⛏️ [Lauro Guedes](https://lauroguedes.dev)
+WallAI is released under the [MIT License](LICENSE).

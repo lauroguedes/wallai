@@ -153,8 +153,8 @@ return [
 
     'metrics' => [
         'trim_snapshots' => [
-            'job' => 24,
-            'queue' => 24,
+            'job' => (int) env('HORIZON_METRICS_SNAPSHOTS', 288),
+            'queue' => (int) env('HORIZON_METRICS_SNAPSHOTS', 288),
         ],
     ],
 

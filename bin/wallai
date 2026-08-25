@@ -1,0 +1,324 @@
+#!/bin/sh
+set -eu
+
+project_directory=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
+environment_file=${WALLAI_ENV_FILE:-$project_directory/.env}
+secrets_directory=${WALLAI_SECRETS_DIR:-$project_directory/.secrets}
+backup_directory=${WALLAI_BACKUP_DIR:-$project_directory/backups}
+
+compose() {
+    https_domain=$(awk -F= '$1 == "WALLAI_DOMAIN" { print $2 }' "$environment_file" | tail -n 1)
+    configured_project_name=$(awk -F= '$1 == "WALLAI_PROJECT_NAME" { print $2 }' "$environment_file" | tail -n 1)
+    project_name=${WALLAI_PROJECT_NAME:-${configured_project_name:-wallai}}
+
+    if [ "${WALLAI_BUILD_LOCAL:-false}" = "true" ]; then
+        if [ -n "$https_domain" ]; then
+            docker compose --project-directory "$project_directory" --project-name "$project_name" --env-file "$environment_file" \
+                -f "$project_directory/compose.yaml" -f "$project_directory/compose.build.yaml" \
+                --profile https "$@"
+        else
+            docker compose --project-directory "$project_directory" --project-name "$project_name" --env-file "$environment_file" \
+                -f "$project_directory/compose.yaml" -f "$project_directory/compose.build.yaml" "$@"
+        fi
+        return
+    fi
+
+    if [ -n "$https_domain" ]; then
+        docker compose --project-directory "$project_directory" --project-name "$project_name" --env-file "$environment_file" \
+            -f "$project_directory/compose.yaml" --profile https "$@"
+    else
+        docker compose --project-directory "$project_directory" --project-name "$project_name" --env-file "$environment_file" \
+            -f "$project_directory/compose.yaml" "$@"
+    fi
+}
+
+require_docker() {
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "Docker is required: https://docs.docker.com/engine/install/" >&2
+        exit 1
+    fi
+
+    if ! docker compose version >/dev/null 2>&1; then
+        echo "Docker Compose v2 is required." >&2
+        exit 1
+    fi
+
+    compose_version=$(docker compose version --short | sed 's/^v//' | cut -d- -f1)
+    if ! awk -v version="$compose_version" 'BEGIN {
+        split(version, parts, ".")
+        exit ! (parts[1] > 2 || (parts[1] == 2 && parts[2] >= 15))
+    }'; then
+        echo "Docker Compose 2.15 or newer is required; found $compose_version." >&2
+        exit 1
+    fi
+
+    if ! docker info >/dev/null 2>&1; then
+        echo "The Docker daemon is not available." >&2
+        exit 1
+    fi
+}
+
+random_base64() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -base64 32 | tr -d '\r\n'
+        return
+    fi
+
+    head -c 32 /dev/urandom | base64 | tr -d '\r\n'
+}
+
+write_checksum() {
+    file_path="$1"
+    file_directory=$(dirname "$file_path")
+    file_name=$(basename "$file_path")
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        (cd "$file_directory" && sha256sum "$file_name") > "$file_path.sha256"
+    else
+        (cd "$file_directory" && shasum -a 256 "$file_name") > "$file_path.sha256"
+    fi
+}
+
+verify_checksum() {
+    file_path="$1"
+
+    if [ ! -f "$file_path.sha256" ]; then
+        return
+    fi
+
+    file_directory=$(dirname "$file_path")
+    checksum_file=$(basename "$file_path.sha256")
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        (cd "$file_directory" && sha256sum --check "$checksum_file")
+    else
+        (cd "$file_directory" && shasum -a 256 --check "$checksum_file")
+    fi
+}
+
+prepare_configuration() {
+    if [ ! -f "$environment_file" ]; then
+        cp "$project_directory/.env.docker.example" "$environment_file"
+        chmod 600 "$environment_file"
+        echo "Created $environment_file"
+    fi
+
+    umask 077
+    mkdir -p "$secrets_directory"
+
+    if [ ! -s "$secrets_directory/app_key" ]; then
+        printf 'base64:%s' "$(random_base64)" > "$secrets_directory/app_key"
+    fi
+
+    if [ ! -s "$secrets_directory/redis_password" ]; then
+        random_base64 > "$secrets_directory/redis_password"
+    fi
+
+    chmod 600 "$secrets_directory/app_key" "$secrets_directory/redis_password"
+}
+
+require_configuration() {
+    if [ ! -f "$environment_file" ]; then
+        echo "WallAI is not configured. Run ./bin/wallai install or restore a backup." >&2
+        exit 1
+    fi
+
+    for secret_file in app_key redis_password; do
+        if [ ! -s "$secrets_directory/$secret_file" ]; then
+            echo "Required secret is missing: $secrets_directory/$secret_file" >&2
+            echo "Restore the original secret from backup; generating a replacement may make encrypted data unreadable." >&2
+            exit 1
+        fi
+    done
+}
+
+pull_images() {
+    if [ "${WALLAI_BUILD_LOCAL:-false}" = "true" ]; then
+        compose build --pull
+    else
+        compose pull
+    fi
+}
+
+install_wallai() {
+    require_docker
+    prepare_configuration
+    pull_images
+    compose up -d --wait
+
+    port=$(awk -F= '$1 == "WALLAI_PORT" { print $2 }' "$environment_file" | tail -n 1)
+    port=${port:-8080}
+
+    echo
+    domain=$(awk -F= '$1 == "WALLAI_DOMAIN" { print $2 }' "$environment_file" | tail -n 1)
+    if [ -n "$domain" ]; then
+        echo "WallAI is ready at https://$domain"
+    else
+        echo "WallAI is ready at http://localhost:$port"
+    fi
+    echo "Complete the first-run setup in your browser."
+    echo "Run ./bin/wallai doctor to verify the deployment at any time."
+}
+
+backup_wallai() {
+    require_docker
+    require_configuration
+    mkdir -p "$backup_directory"
+
+    timestamp=$(date -u '+%Y%m%dT%H%M%SZ')
+    destination=${1:-$backup_directory/wallai-$timestamp.tar.gz}
+    mkdir -p "$(dirname "$destination")"
+    temporary_directory=$(mktemp -d)
+    resumed=false
+
+    cleanup_backup() {
+        trap - EXIT INT TERM
+
+        if [ -d "$temporary_directory" ]; then
+            rm -r "$temporary_directory"
+        fi
+
+        if [ "$resumed" = "false" ]; then
+            compose up -d web horizon scheduler >/dev/null 2>&1 || true
+            compose exec -T web php artisan up >/dev/null 2>&1 || true
+        fi
+    }
+
+    trap cleanup_backup EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+
+    compose exec -T web php artisan down --retry=30
+    compose exec -T web php artisan horizon:pause >/dev/null 2>&1 || true
+    compose stop web horizon scheduler
+
+    compose run --rm --no-deps --entrypoint tar web \
+        -czf - -C / var/lib/wallai app/storage/app/public/wallpapers \
+        > "$temporary_directory/data.tar.gz"
+
+    cp "$environment_file" "$temporary_directory/environment"
+    cp -R "$secrets_directory" "$temporary_directory/secrets"
+    wallai_version=$(awk -F= '$1 == "WALLAI_VERSION" { print $2 }' "$environment_file" | tail -n 1)
+    printf 'created_at=%s\nwallai_version=%s\n' \
+        "$timestamp" \
+        "${wallai_version:-unknown}" \
+        > "$temporary_directory/manifest"
+
+    tar -czf "$destination" -C "$temporary_directory" .
+    chmod 600 "$destination"
+    write_checksum "$destination"
+
+    compose up -d web horizon scheduler
+    compose exec -T web php artisan up
+    resumed=true
+    cleanup_backup
+
+    echo "Backup created: $destination"
+}
+
+restore_wallai() {
+    require_docker
+
+    backup_file=${1:-}
+    force=${2:-}
+
+    if [ -z "$backup_file" ] || [ ! -f "$backup_file" ]; then
+        echo "Usage: ./bin/wallai restore /path/to/backup.tar.gz [--force]" >&2
+        exit 1
+    fi
+
+    verify_checksum "$backup_file"
+
+    if [ "$force" != "--force" ]; then
+        printf 'Restore this backup and replace all current WallAI data? [y/N] '
+        read -r answer
+        case "$answer" in
+            y|Y|yes|YES) ;;
+            *) echo "Restore cancelled."; exit 1 ;;
+        esac
+    fi
+
+    temporary_directory=$(mktemp -d)
+    trap 'rm -r "$temporary_directory"' EXIT INT TERM
+    tar -xzf "$backup_file" -C "$temporary_directory"
+
+    for required_file in data.tar.gz environment secrets/app_key secrets/redis_password; do
+        if [ ! -f "$temporary_directory/$required_file" ]; then
+            echo "Invalid WallAI backup: missing $required_file" >&2
+            exit 1
+        fi
+    done
+
+    if [ -f "$environment_file" ] \
+        && [ -s "$secrets_directory/app_key" ] \
+        && [ -s "$secrets_directory/redis_password" ]; then
+        compose down
+    fi
+
+    cp "$temporary_directory/environment" "$environment_file"
+    mkdir -p "$secrets_directory"
+    cp "$temporary_directory/secrets/app_key" "$secrets_directory/app_key"
+    cp "$temporary_directory/secrets/redis_password" "$secrets_directory/redis_password"
+    chmod 600 "$environment_file" "$secrets_directory/app_key" "$secrets_directory/redis_password"
+
+    compose run --rm --no-deps \
+        --volume "$temporary_directory:/backup:ro" \
+        --entrypoint /bin/sh web \
+        -ec 'rm -rf /var/lib/wallai/* /app/storage/app/public/wallpapers/* && tar -xzf /backup/data.tar.gz -C /'
+
+    compose up -d --wait
+    echo "WallAI restored successfully from $backup_file"
+}
+
+update_wallai() {
+    require_docker
+    require_configuration
+    backup_wallai
+    pull_images
+    compose stop web horizon scheduler
+    compose up -d --force-recreate --wait
+    compose exec -T web php artisan schedule:interrupt >/dev/null 2>&1 || true
+    echo "WallAI was updated successfully."
+}
+
+show_help() {
+    cat <<'EOF'
+WallAI self-hosting manager
+
+Usage: ./bin/wallai <command>
+
+Commands:
+  install                 Create secrets, pull images, and start WallAI
+  up                      Start WallAI
+  down                    Stop WallAI without deleting data
+  restart                 Restart all services
+  status                  Show container status
+  logs [service]          Follow application logs
+  doctor                  Run deployment diagnostics
+  backup [path]           Create a database, wallpaper, and secret backup
+  restore <path> [--force] Restore a backup, replacing current data
+  update                  Back up, pull, migrate, and restart WallAI
+  reset                   Return WallAI to first-run state (destructive)
+  uninstall               Remove containers; named data volumes are preserved
+EOF
+}
+
+command_name=${1:-help}
+shift || true
+
+case "$command_name" in
+    install) install_wallai ;;
+    up) require_docker; require_configuration; compose up -d --wait ;;
+    down) require_docker; require_configuration; compose down ;;
+    restart) require_docker; require_configuration; compose down; compose up -d --wait ;;
+    status) require_docker; require_configuration; compose ps ;;
+    logs) require_docker; require_configuration; compose logs --follow --tail=200 "$@" ;;
+    doctor) require_docker; require_configuration; compose exec -T web php artisan wallai:doctor --deployment --runtime ;;
+    backup) backup_wallai "${1:-}" ;;
+    restore) restore_wallai "${1:-}" "${2:-}" ;;
+    update) update_wallai ;;
+    reset) require_docker; require_configuration; compose exec web php artisan wallai:reset ;;
+    uninstall) require_docker; require_configuration; compose down ;;
+    help|-h|--help) show_help ;;
+    *) echo "Unknown command: $command_name" >&2; show_help; exit 1 ;;
+esac

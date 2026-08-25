@@ -1,4 +1,5 @@
 {
+    "name": "wallai",
     "private": true,
     "type": "module",
     "scripts": {

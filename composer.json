@@ -1,10 +1,12 @@
 {
-    "name": "laravel/laravel",
+    "name": "lauroguedes/wallai",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "A self-hosted AI wallpaper generator built with Laravel.",
     "keywords": [
+        "ai",
         "laravel",
-        "framework"
+        "self-hosted",
+        "wallpaper"
     ],
     "license": "MIT",
     "require": {

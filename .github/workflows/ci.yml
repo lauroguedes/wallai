@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.5'
+          extensions: curl, intl, mbstring, pcntl, pdo_sqlite, redis, zip
+          coverage: none
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Prepare application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          touch database/database.sqlite
+          php artisan migrate --force
+
+      - name: Run tests
+        run: php artisan test --compact
+
+      - name: Check PHP formatting
+        run: |
+          vendor/bin/pint --format agent
+          git diff --exit-code
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Audit dependencies
+        run: |
+          composer audit
+          npm audit --audit-level=high
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Validate shell scripts
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+          shellcheck bin/wallai docker/*.sh
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+      - name: Prepare self-hosting configuration
+        run: |
+          cp .env.docker.example .env
+          mkdir -p .secrets
+          printf 'base64:%s' "$(openssl rand -base64 32 | tr -d '\n')" > .secrets/app_key
+          openssl rand -base64 32 | tr -d '\n' > .secrets/redis_password
+          sed -i 's/^WALLAI_IMAGE=.*/WALLAI_IMAGE=wallai/' .env
+          sed -i 's/^WALLAI_VERSION=.*/WALLAI_VERSION=ci/' .env
+
+      - name: Validate Compose
+        run: docker compose config --quiet
+
+      - name: Build image
+        run: docker build --build-arg WALLAI_VERSION=ci --build-arg WALLAI_REVISION="$GITHUB_SHA" --tag wallai:ci .
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+        with:
+          image-ref: wallai:ci
+          format: table
+          exit-code: '1'
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Start clean stack
+        run: docker compose up --detach --wait
+
+      - name: Smoke test
+        run: |
+          curl --fail --silent http://127.0.0.1:8080/up
+          curl --fail --silent http://127.0.0.1:8080/ready
+          docker compose exec -T web php artisan wallai:doctor --deployment --runtime
+          docker compose exec -T web php artisan horizon:status
+
+      - name: Verify persistence and recovery workflow
+        run: |
+          docker compose exec -T web php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); Illuminate\Support\Facades\DB::table("application_settings")->insert(["mode" => "browser", "installed_at" => now(), "created_at" => now(), "updated_at" => now()]);'
+          docker compose exec -T web php -r 'file_put_contents("storage/app/public/wallpapers/backup-smoke.txt", "wallai-backup-smoke");'
+          app_key_hash=$(sha256sum .secrets/app_key | cut -d' ' -f1)
+          ./bin/wallai backup /tmp/wallai-ci-backup.tar.gz
+          tar -tzf /tmp/wallai-ci-backup.tar.gz | grep './data.tar.gz'
+          ./bin/wallai restore /tmp/wallai-ci-backup.tar.gz --force
+          ./bin/wallai restart
+          test "$app_key_hash" = "$(sha256sum .secrets/app_key | cut -d' ' -f1)"
+          test "$(docker compose exec -T web php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo Illuminate\Support\Facades\DB::table("application_settings")->value("mode");')" = browser
+          test "$(docker compose exec -T web php -r 'echo file_get_contents("storage/app/public/wallpapers/backup-smoke.txt");')" = wallai-backup-smoke
+          ./bin/wallai update
+          curl --fail --silent http://127.0.0.1:8080/ready
+          ./bin/wallai doctor
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down --volumes
