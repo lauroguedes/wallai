@@ -262,9 +262,9 @@ restore_wallai() {
     chmod 600 "$environment_file" "$secrets_directory/app_key" "$secrets_directory/redis_password"
 
     compose run --rm --no-deps \
-        --volume "$temporary_directory:/backup:ro" \
         --entrypoint /bin/sh web \
-        -ec 'rm -rf /var/lib/wallai/* /app/storage/app/public/wallpapers/* && tar -xzf /backup/data.tar.gz -C /'
+        -ec 'rm -rf /var/lib/wallai/* /app/storage/app/public/wallpapers/* && tar -xzf - -C /' \
+        < "$temporary_directory/data.tar.gz"
 
     compose up -d --wait
     echo "WallAI restored successfully from $backup_file"

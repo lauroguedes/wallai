@@ -10,6 +10,7 @@ beforeEach(function () {
     $this->environmentFile = $this->temporaryDirectory.'/.env';
     $this->secretsDirectory = $this->temporaryDirectory.'/.secrets';
     $this->dockerLog = $this->temporaryDirectory.'/docker.log';
+    $this->dockerStdinLog = $this->temporaryDirectory.'/docker-stdin.log';
 
     File::ensureDirectoryExists($this->fakeBinaryDirectory);
     File::put($this->fakeBinaryDirectory.'/docker', <<<'SHELL'
@@ -21,6 +22,10 @@ fi
 if [ "${1:-}" = "compose" ] && [ "${2:-}" = "version" ] && [ "${3:-}" = "--short" ]; then
     echo '2.15.1'
 fi
+
+case "$*" in
+    *'tar -xzf - -C /'*) cat > "${WALLAI_DOCKER_STDIN_LOG:-/dev/null}" ;;
+esac
 
 exit 0
 SHELL);
@@ -125,4 +130,37 @@ it('stops application services before recreating them during an update', functio
         ->and(substr_count($dockerCalls, 'stop web horizon scheduler'))->toBe(2)
         ->and($dockerCalls)->toContain('up -d --force-recreate --wait')
         ->and(File::directories($processEnvironment['TMPDIR']))->toBeEmpty();
+});
+
+it('streams backup data into the non-root restore container', function () {
+    $backupContents = $this->temporaryDirectory.'/backup-contents';
+    $backupFile = $this->temporaryDirectory.'/wallai-backup.tar.gz';
+
+    File::ensureDirectoryExists($backupContents.'/secrets');
+    File::put($backupContents.'/data.tar.gz', 'streamed backup data');
+    File::put($backupContents.'/environment', 'APP_ENV=production');
+    File::put($backupContents.'/secrets/app_key', 'base64:test-key');
+    File::put($backupContents.'/secrets/redis_password', 'test-password');
+
+    (new Process(['tar', '-czf', $backupFile, '-C', $backupContents, '.']))->mustRun();
+
+    $restore = new Process(
+        [base_path('bin/wallai'), 'restore', $backupFile, '--force'],
+        base_path(),
+        [
+            'PATH' => $this->fakeBinaryDirectory.':'.getenv('PATH'),
+            'TMPDIR' => $this->temporaryDirectory.'/tmp',
+            'WALLAI_DOCKER_LOG' => $this->dockerLog,
+            'WALLAI_DOCKER_STDIN_LOG' => $this->dockerStdinLog,
+            'WALLAI_ENV_FILE' => $this->environmentFile,
+            'WALLAI_SECRETS_DIR' => $this->secretsDirectory,
+        ],
+    );
+    File::ensureDirectoryExists($this->temporaryDirectory.'/tmp');
+    $restore->run();
+
+    expect($restore->isSuccessful())->toBeTrue()
+        ->and(File::get($this->dockerStdinLog))->toBe('streamed backup data')
+        ->and(File::get($this->dockerLog))->toContain('tar -xzf - -C /')
+        ->not->toContain('--volume');
 });
