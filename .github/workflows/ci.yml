@@ -136,7 +136,7 @@ jobs:
           test "$app_key_hash" = "$(sha256sum .secrets/app_key | cut -d' ' -f1)"
           test "$(docker compose exec -T web wallai-entrypoint php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo Illuminate\Support\Facades\DB::table("application_settings")->value("mode");')" = browser
           test "$(docker compose exec -T web wallai-entrypoint php -r 'echo file_get_contents("storage/app/public/wallpapers/backup-smoke.txt");')" = wallai-backup-smoke
-          ./bin/wallai update
+          WALLAI_BUILD_LOCAL=true ./bin/wallai update
           curl --fail --silent http://127.0.0.1:8080/ready
           ./bin/wallai doctor
 
