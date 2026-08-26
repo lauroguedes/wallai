@@ -28,7 +28,7 @@ Only exact hosts in `OLLAMA_ALLOWED_HOSTS` can be saved or contacted. Do not exp
 Run the connectivity check from the web container:
 
 ```bash
-docker compose exec web php -r 'var_dump(file_get_contents(getenv("OLLAMA_BASE_URL")."/api/tags"));'
+docker compose exec web wallai-entrypoint php -r 'var_dump(file_get_contents(getenv("OLLAMA_BASE_URL")."/api/tags"));'
 ```
 
 If the host endpoint is refused, verify Ollama's listen address and host firewall. GPU configuration belongs to the Ollama deployment and is intentionally not forced into WallAI's base stack.

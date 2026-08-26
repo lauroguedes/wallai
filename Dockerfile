@@ -43,7 +43,8 @@ RUN install-php-extensions \
     pdo_sqlite \
     redis \
     zip \
-    && if [ -n "$(getcap /usr/local/bin/frankenphp)" ]; then setcap -r /usr/local/bin/frankenphp; fi
+    && if [ -n "$(getcap /usr/local/bin/frankenphp)" ]; then setcap -r /usr/local/bin/frankenphp; fi \
+    && command -v setpriv > /dev/null
 
 FROM php-runtime AS composer-dependencies
 

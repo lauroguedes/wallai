@@ -11,7 +11,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | tests/** | .ai/rules/boost/tests.md |
 | app/Services/**, app/Models/AiProviderSetting.php, app/Models/Wallpaper.php, resources/views/components/**, app/Models/User.php | .ai/rules/components.md |
 | config/horizon.php, config/session.php | .ai/rules/config.md |
-| docker/**, docker/*.sh | .ai/rules/docker.md |
+| docker/**, docker/*.sh, docker/entrypoint.sh | .ai/rules/docker.md |
 | Dockerfile | .ai/rules/dockerfile.md |
 | app/Enums/** | .ai/rules/enums.md |
 | docker/frankenphp/** | .ai/rules/frankenphp.md |

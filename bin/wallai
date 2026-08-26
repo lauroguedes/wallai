@@ -180,7 +180,7 @@ backup_wallai() {
 
         if [ "$resumed" = "false" ]; then
             compose up -d web horizon scheduler >/dev/null 2>&1 || true
-            compose exec -T web php artisan up >/dev/null 2>&1 || true
+            compose exec -T web wallai-entrypoint php artisan up >/dev/null 2>&1 || true
         fi
     }
 
@@ -188,11 +188,11 @@ backup_wallai() {
     trap 'exit 130' INT
     trap 'exit 143' TERM
 
-    compose exec -T web php artisan down --retry=30
-    compose exec -T web php artisan horizon:pause >/dev/null 2>&1 || true
+    compose exec -T web wallai-entrypoint php artisan down --retry=30
+    compose exec -T web wallai-entrypoint php artisan horizon:pause >/dev/null 2>&1 || true
     compose stop web horizon scheduler
 
-    compose run --rm --no-deps --entrypoint tar web \
+    compose run --rm --no-deps --user 33:33 --entrypoint tar web \
         -czf - -C / var/lib/wallai app/storage/app/public/wallpapers \
         > "$temporary_directory/data.tar.gz"
 
@@ -209,7 +209,7 @@ backup_wallai() {
     write_checksum "$destination"
 
     compose up -d web horizon scheduler
-    compose exec -T web php artisan up
+    compose exec -T web wallai-entrypoint php artisan up
     resumed=true
     cleanup_backup
 
@@ -261,7 +261,7 @@ restore_wallai() {
     cp "$temporary_directory/secrets/redis_password" "$secrets_directory/redis_password"
     chmod 600 "$environment_file" "$secrets_directory/app_key" "$secrets_directory/redis_password"
 
-    compose run --rm --no-deps \
+    compose run --rm --no-deps --user 33:33 \
         --entrypoint /bin/sh web \
         -ec 'rm -rf /var/lib/wallai/* /app/storage/app/public/wallpapers/* && tar -xzf - -C /' \
         < "$temporary_directory/data.tar.gz"
@@ -277,7 +277,7 @@ update_wallai() {
     pull_images
     compose stop web horizon scheduler
     compose up -d --force-recreate --wait
-    compose exec -T web php artisan schedule:interrupt >/dev/null 2>&1 || true
+    compose exec -T web wallai-entrypoint php artisan schedule:interrupt >/dev/null 2>&1 || true
     echo "WallAI was updated successfully."
 }
 
@@ -313,11 +313,11 @@ case "$command_name" in
     restart) require_docker; require_configuration; compose down; compose up -d --wait ;;
     status) require_docker; require_configuration; compose ps ;;
     logs) require_docker; require_configuration; compose logs --follow --tail=200 "$@" ;;
-    doctor) require_docker; require_configuration; compose exec -T web php artisan wallai:doctor --deployment --runtime ;;
+    doctor) require_docker; require_configuration; compose exec -T web wallai-entrypoint php artisan wallai:doctor --deployment --runtime ;;
     backup) backup_wallai "${1:-}" ;;
     restore) restore_wallai "${1:-}" "${2:-}" ;;
     update) update_wallai ;;
-    reset) require_docker; require_configuration; compose exec web php artisan wallai:reset ;;
+    reset) require_docker; require_configuration; compose exec web wallai-entrypoint php artisan wallai:reset ;;
     uninstall) require_docker; require_configuration; compose down ;;
     help|-h|--help) show_help ;;
     *) echo "Unknown command: $command_name" >&2; show_help; exit 1 ;;

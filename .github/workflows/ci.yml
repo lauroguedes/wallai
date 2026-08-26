@@ -87,6 +87,7 @@ jobs:
           mkdir -p .secrets
           printf 'base64:%s' "$(openssl rand -base64 32 | tr -d '\n')" > .secrets/app_key
           openssl rand -base64 32 | tr -d '\n' > .secrets/redis_password
+          chmod 600 .secrets/app_key .secrets/redis_password
           sed -i 's/^WALLAI_IMAGE=.*/WALLAI_IMAGE=wallai/' .env
           sed -i 's/^WALLAI_VERSION=.*/WALLAI_VERSION=ci/' .env
 
@@ -116,21 +117,25 @@ jobs:
         run: |
           curl --fail --silent http://127.0.0.1:8080/up
           curl --fail --silent http://127.0.0.1:8080/ready
-          docker compose exec -T web php artisan wallai:doctor --deployment --runtime
-          docker compose exec -T web php artisan horizon:status
+          docker compose exec -T web wallai-entrypoint php artisan wallai:doctor --deployment --runtime
+          docker compose exec -T web wallai-entrypoint php artisan horizon:status
+          for service in web horizon scheduler; do
+            test "$(docker compose exec -T --user 33:33 "$service" awk '/^Uid:/ { print $2 }' /proc/1/status)" = 33
+            test "$(docker compose exec -T --user 33:33 "$service" awk '/^CapEff:/ { print $2 }' /proc/1/status)" = 0000000000000000
+          done
 
       - name: Verify persistence and recovery workflow
         run: |
-          docker compose exec -T web php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); Illuminate\Support\Facades\DB::table("application_settings")->insert(["mode" => "browser", "installed_at" => now(), "created_at" => now(), "updated_at" => now()]);'
-          docker compose exec -T web php -r 'file_put_contents("storage/app/public/wallpapers/backup-smoke.txt", "wallai-backup-smoke");'
+          docker compose exec -T web wallai-entrypoint php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); Illuminate\Support\Facades\DB::table("application_settings")->insert(["mode" => "browser", "installed_at" => now(), "created_at" => now(), "updated_at" => now()]);'
+          docker compose exec -T web wallai-entrypoint php -r 'file_put_contents("storage/app/public/wallpapers/backup-smoke.txt", "wallai-backup-smoke");'
           app_key_hash=$(sha256sum .secrets/app_key | cut -d' ' -f1)
           ./bin/wallai backup /tmp/wallai-ci-backup.tar.gz
           tar -tzf /tmp/wallai-ci-backup.tar.gz | grep './data.tar.gz'
           ./bin/wallai restore /tmp/wallai-ci-backup.tar.gz --force
           ./bin/wallai restart
           test "$app_key_hash" = "$(sha256sum .secrets/app_key | cut -d' ' -f1)"
-          test "$(docker compose exec -T web php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo Illuminate\Support\Facades\DB::table("application_settings")->value("mode");')" = browser
-          test "$(docker compose exec -T web php -r 'echo file_get_contents("storage/app/public/wallpapers/backup-smoke.txt");')" = wallai-backup-smoke
+          test "$(docker compose exec -T web wallai-entrypoint php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo Illuminate\Support\Facades\DB::table("application_settings")->value("mode");')" = browser
+          test "$(docker compose exec -T web wallai-entrypoint php -r 'echo file_get_contents("storage/app/public/wallpapers/backup-smoke.txt");')" = wallai-backup-smoke
           ./bin/wallai update
           curl --fail --silent http://127.0.0.1:8080/ready
           ./bin/wallai doctor

@@ -22,7 +22,7 @@ Common causes are an invalid database address, database permissions, a missing s
 
 ```bash
 docker compose logs scheduler
-docker compose exec scheduler php artisan schedule:list
+docker compose exec scheduler wallai-entrypoint php artisan schedule:list
 ```
 
 The scheduler writes a Redis heartbeat every minute. Restart the scheduler after resolving Redis or configuration errors.
@@ -31,7 +31,7 @@ The scheduler writes a Redis heartbeat every minute. Restart the scheduler after
 
 ```bash
 docker compose logs horizon
-docker compose exec web php artisan horizon:status
+docker compose exec web wallai-entrypoint php artisan horizon:status
 ```
 
 Confirm Redis is healthy and `QUEUE_CONNECTION=redis`. Do not reduce `REDIS_QUEUE_RETRY_AFTER` below the Horizon worker timeout.

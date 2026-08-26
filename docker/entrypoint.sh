@@ -24,6 +24,10 @@ for secret_name in APP_KEY REDIS_PASSWORD DB_PASSWORD MAIL_PASSWORD; do
     load_secret "$secret_name"
 done
 
+if [ "$(id -u)" -eq 0 ]; then
+    exec setpriv --reuid=www-data --regid=www-data --init-groups -- "$0" "$@"
+fi
+
 if [ -z "${APP_KEY:-}" ]; then
     echo "APP_KEY is required. Run ./bin/wallai install to generate it." >&2
     exit 1

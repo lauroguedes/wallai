@@ -162,5 +162,6 @@ it('streams backup data into the non-root restore container', function () {
     expect($restore->isSuccessful())->toBeTrue()
         ->and(File::get($this->dockerStdinLog))->toBe('streamed backup data')
         ->and(File::get($this->dockerLog))->toContain('tar -xzf - -C /')
+        ->toContain('--user 33:33')
         ->not->toContain('--volume');
 });

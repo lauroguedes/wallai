@@ -13,7 +13,7 @@
 
 ## Container defaults
 
-The application containers run as a non-root user with a read-only root filesystem, dropped Linux capabilities, and `no-new-privileges`. Only explicit temporary and persistent paths are writable. Redis is authenticated and is not exposed on a host port.
+The application processes run as UID/GID 33 with a read-only root filesystem and `no-new-privileges`. At startup, the entrypoint has only the capabilities required to read host-owned `0600` secret mounts and change identity; it immediately drops to UID/GID 33 before starting Laravel, Horizon, the scheduler, or FrankenPHP. Only explicit temporary and persistent paths are writable. Redis follows the same read-then-drop pattern, is authenticated, and is not exposed on a host port.
 
 ## Credentials
 
