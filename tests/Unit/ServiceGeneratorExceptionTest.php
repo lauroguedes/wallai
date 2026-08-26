@@ -3,7 +3,7 @@
 use App\Exceptions\ServiceGeneratorException;
 
 it('creates image generation exception with correct properties', function () {
-    $original = new \RuntimeException('API rate limit exceeded');
+    $original = new RuntimeException('API rate limit exceeded');
 
     $exception = ServiceGeneratorException::imageGeneration($original, ['prompt' => 'sunset']);
 
@@ -15,7 +15,7 @@ it('creates image generation exception with correct properties', function () {
 });
 
 it('creates prompt generation exception with correct properties', function () {
-    $original = new \RuntimeException('Connection timeout');
+    $original = new RuntimeException('Connection timeout');
 
     $exception = ServiceGeneratorException::promptGeneration($original, ['style' => 'abstract']);
 
@@ -27,7 +27,7 @@ it('creates prompt generation exception with correct properties', function () {
 });
 
 it('creates download failed exception with correct properties', function () {
-    $original = new \RuntimeException('File not found');
+    $original = new RuntimeException('File not found');
 
     $exception = ServiceGeneratorException::downloadFailed($original);
 
