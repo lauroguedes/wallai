@@ -15,3 +15,6 @@ The read-only Compose stack mounts framework, logs, and bootstrap cache paths as
 
 ## Drop privileges before application startup
 Load file-backed secrets before any application code, then immediately re-exec the entrypoint through setpriv as www-data. Laravel, Horizon, the scheduler, and FrankenPHP must never run as the temporary startup user.
+
+## Bootstrap Laravel only for container startup
+Run package discovery and optimization only when the entrypoint is PID 1. Health checks and maintenance commands invoke the same entrypoint to load secrets and drop privileges, but must not re-bootstrap Laravel or pollute command output.

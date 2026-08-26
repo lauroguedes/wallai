@@ -165,3 +165,20 @@ it('streams backup data into the non-root restore container', function () {
         ->toContain('--user 33:33')
         ->not->toContain('--volume');
 });
+
+it('does not bootstrap Laravel for maintenance commands', function () {
+    $maintenanceCommand = new Process(
+        ['sh', base_path('docker/entrypoint.sh'), 'printf', 'maintenance-command'],
+        base_path(),
+        [
+            'APP_KEY' => 'base64:test-key',
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => $this->temporaryDirectory.'/database.sqlite',
+            'WALLAI_OPTIMIZE' => 'true',
+        ],
+    );
+    $maintenanceCommand->run();
+
+    expect($maintenanceCommand->isSuccessful())->toBeTrue()
+        ->and($maintenanceCommand->getOutput())->toBe('maintenance-command');
+});

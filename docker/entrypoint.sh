@@ -46,7 +46,7 @@ if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
     touch "$database_path"
 fi
 
-if [ "${WALLAI_OPTIMIZE:-true}" = "true" ]; then
+if [ "${WALLAI_OPTIMIZE:-true}" = "true" ] && [ "$$" -eq 1 ]; then
     php artisan package:discover --no-interaction
     php artisan optimize --no-interaction
 fi
