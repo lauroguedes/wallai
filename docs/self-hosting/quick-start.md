@@ -27,37 +27,27 @@ cd wallai
 
 Open `http://localhost:8080`. Choose authenticated mode or browser-session mode on the first-run screen.
 
+To build and test the current checkout instead of pulling the published image:
+
+```bash
+./bin/wallai install --local
+```
+
+This creates `.env.docker`, builds the image, and serves `http://wallai.localhost:8080`. Subsequent management commands automatically reuse `.env.docker`.
+
 ## Install on a public server
+
+Create an `A` or `AAAA` DNS record for the server and allow inbound TCP 80/443, then run:
 
 ```bash
 git clone https://github.com/lauroguedes/wallai.git
 cd wallai
-cp .env.docker.example .env
+./bin/wallai install --domain wallai.example.com --version 2.1.0
 ```
 
-Edit `.env`:
+The installer configures `APP_URL`, `WALLAI_DOMAIN`, secure cookies, and trusted hosts. Configure SMTP or an external database in the generated `.env` when needed.
 
-```dotenv
-APP_URL=https://wallai.example.com
-WALLAI_DOMAIN=wallai.example.com
-SESSION_SECURE_COOKIE=true
-TRUSTED_HOSTS=wallai.example.com
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.example.com
-MAIL_PORT=587
-MAIL_USERNAME=wallai@example.com
-MAIL_PASSWORD=replace-me
-MAIL_ENCRYPTION=tls
-MAIL_FROM_ADDRESS=wallai@example.com
-```
-
-Create an `A` or `AAAA` DNS record for the server, allow inbound TCP 80/443, and install:
-
-```bash
-./bin/wallai install
-```
-
-The HTTPS profile starts automatically when `WALLAI_DOMAIN` is set.
+Run `./bin/wallai install --help` to set a custom image, version, port, bind address, project name, or environment file during installation.
 
 ## First-run choices
 

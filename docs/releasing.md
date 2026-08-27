@@ -72,10 +72,9 @@ npm audit --audit-level=high
 For changes affecting the image or deployment lifecycle, also test a local production image:
 
 ```bash
-cp .env.docker.example .env.docker
-WALLAI_ENV_FILE=.env.docker WALLAI_BUILD_LOCAL=true ./bin/wallai install
-WALLAI_ENV_FILE=.env.docker WALLAI_BUILD_LOCAL=true ./bin/wallai doctor
-WALLAI_ENV_FILE=.env.docker WALLAI_BUILD_LOCAL=true ./bin/wallai down
+./bin/wallai install --local
+./bin/wallai doctor
+./bin/wallai down
 ```
 
 Do not use production secrets for this local verification.

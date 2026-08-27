@@ -28,8 +28,7 @@ npm audit
 Keep Docker settings separate from the native `.env`:
 
 ```bash
-cp .env.docker.example .env.docker
-WALLAI_ENV_FILE=.env.docker WALLAI_BUILD_LOCAL=true ./bin/wallai install
+./bin/wallai install --local
 ```
 
 The build override compiles the current checkout instead of pulling GHCR.

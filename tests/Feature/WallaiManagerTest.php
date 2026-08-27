@@ -11,8 +11,13 @@ beforeEach(function () {
     $this->secretsDirectory = $this->temporaryDirectory.'/.secrets';
     $this->dockerLog = $this->temporaryDirectory.'/docker.log';
     $this->dockerStdinLog = $this->temporaryDirectory.'/docker-stdin.log';
+    $this->isolatedProjectDirectory = $this->temporaryDirectory.'/project';
 
     File::ensureDirectoryExists($this->fakeBinaryDirectory);
+    File::ensureDirectoryExists($this->isolatedProjectDirectory.'/bin');
+    File::copy(base_path('bin/wallai'), $this->isolatedProjectDirectory.'/bin/wallai');
+    File::copy(base_path('.env.docker.example'), $this->isolatedProjectDirectory.'/.env.docker.example');
+    chmod($this->isolatedProjectDirectory.'/bin/wallai', 0755);
     File::put($this->fakeBinaryDirectory.'/docker', <<<'SHELL'
 #!/bin/sh
 if [ -n "${WALLAI_DOCKER_LOG:-}" ]; then
@@ -103,6 +108,124 @@ it('passes the configured project name explicitly to compose', function () {
 
     expect($install->isSuccessful())->toBeTrue()
         ->and(File::get($this->dockerLog))->toContain('--project-name wallai-test');
+});
+
+it('configures and remembers a local source build', function () {
+    $processEnvironment = [
+        'PATH' => $this->fakeBinaryDirectory.':'.getenv('PATH'),
+        'WALLAI_DOCKER_LOG' => $this->dockerLog,
+    ];
+
+    $install = new Process(
+        [$this->isolatedProjectDirectory.'/bin/wallai', 'install', '--local'],
+        $this->isolatedProjectDirectory,
+        $processEnvironment,
+    );
+    $install->run();
+
+    $environmentFile = $this->isolatedProjectDirectory.'/.env.docker';
+    $environment = File::get($environmentFile);
+
+    expect($install->isSuccessful())->toBeTrue()
+        ->and($install->getOutput())->toContain('http://wallai.localhost:8080')
+        ->and($environment)->toContain('APP_URL=http://wallai.localhost:8080')
+        ->toContain('WALLAI_BUILD_LOCAL=true')
+        ->toContain('WALLAI_IMAGE=wallai')
+        ->toContain('WALLAI_VERSION=local')
+        ->toContain('WALLAI_PROJECT_NAME=wallai-local')
+        ->toContain('WALLAI_DOMAIN=')
+        ->toContain('SESSION_SECURE_COOKIE=false')
+        ->toContain('TRUSTED_HOSTS=wallai.localhost,localhost,127.0.0.1')
+        ->and(File::get($this->dockerLog))->toContain('compose.build.yaml');
+
+    File::put($this->dockerLog, '');
+
+    $doctor = new Process(
+        [$this->isolatedProjectDirectory.'/bin/wallai', 'doctor'],
+        $this->isolatedProjectDirectory,
+        $processEnvironment,
+    );
+    $doctor->run();
+
+    expect($doctor->isSuccessful())->toBeTrue()
+        ->and(File::get($this->dockerLog))->toContain('--env-file '.$environmentFile)
+        ->toContain('compose.build.yaml');
+});
+
+it('configures a production domain from install options', function () {
+    $environmentFile = $this->isolatedProjectDirectory.'/production.env';
+    $install = new Process(
+        [
+            $this->isolatedProjectDirectory.'/bin/wallai',
+            'install',
+            '--domain',
+            'wallai.example.com',
+            '--version',
+            '2.1.0',
+            '--port',
+            '9090',
+            '--project-name',
+            'wallai-prod',
+            '--env-file',
+            $environmentFile,
+        ],
+        $this->isolatedProjectDirectory,
+        [
+            'PATH' => $this->fakeBinaryDirectory.':'.getenv('PATH'),
+            'WALLAI_DOCKER_LOG' => $this->dockerLog,
+        ],
+    );
+    $install->run();
+
+    $environment = File::get($environmentFile);
+
+    expect($install->isSuccessful())->toBeTrue()
+        ->and($install->getOutput())->toContain('https://wallai.example.com')
+        ->and($environment)->toContain('APP_URL=https://wallai.example.com')
+        ->toContain('WALLAI_DOMAIN=wallai.example.com')
+        ->toContain('SESSION_SECURE_COOKIE=true')
+        ->toContain('TRUSTED_HOSTS=wallai.example.com')
+        ->toContain('WALLAI_VERSION=2.1.0')
+        ->toContain('WALLAI_PORT=9090')
+        ->toContain('WALLAI_PROJECT_NAME=wallai-prod')
+        ->and(File::get($this->dockerLog))->not->toContain('compose.build.yaml');
+});
+
+it('rejects conflicting local and production install modes', function () {
+    $install = new Process(
+        [
+            $this->isolatedProjectDirectory.'/bin/wallai',
+            'install',
+            '--local',
+            '--domain',
+            'wallai.example.com',
+        ],
+        $this->isolatedProjectDirectory,
+        ['PATH' => $this->fakeBinaryDirectory.':'.getenv('PATH')],
+    );
+    $install->run();
+
+    expect($install->isSuccessful())->toBeFalse()
+        ->and($install->getErrorOutput())->toContain('--local cannot be combined with --domain');
+});
+
+it('keeps the direct port on loopback when public HTTPS is enabled', function () {
+    $install = new Process(
+        [
+            $this->isolatedProjectDirectory.'/bin/wallai',
+            'install',
+            '--domain',
+            'wallai.example.com',
+            '--bind-address',
+            '0.0.0.0',
+        ],
+        $this->isolatedProjectDirectory,
+        ['PATH' => $this->fakeBinaryDirectory.':'.getenv('PATH')],
+    );
+    $install->run();
+
+    expect($install->isSuccessful())->toBeFalse()
+        ->and($install->getErrorOutput())->toContain('--bind-address must remain loopback');
 });
 
 it('stops application services before recreating them during an update', function () {

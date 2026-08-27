@@ -2,16 +2,56 @@
 set -eu
 
 project_directory=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
-environment_file=${WALLAI_ENV_FILE:-$project_directory/.env}
+
+environment_file_was_configured=false
+if [ -n "${WALLAI_ENV_FILE:-}" ]; then
+    environment_file=$WALLAI_ENV_FILE
+    environment_file_was_configured=true
+elif [ -f "$project_directory/.env" ]; then
+    environment_file=$project_directory/.env
+elif [ -f "$project_directory/.env.docker" ]; then
+    environment_file=$project_directory/.env.docker
+else
+    environment_file=$project_directory/.env
+fi
+
 secrets_directory=${WALLAI_SECRETS_DIR:-$project_directory/.secrets}
 backup_directory=${WALLAI_BACKUP_DIR:-$project_directory/backups}
+build_local=false
+
+configuration_value() {
+    configuration_key="$1"
+
+    if [ ! -f "$environment_file" ]; then
+        return
+    fi
+
+    awk -F= -v key="$configuration_key" '
+        $1 == key { sub(/^[^=]*=/, ""); value = $0; found = 1 }
+        END { if (found) print value }
+    ' "$environment_file"
+}
+
+load_manager_configuration() {
+    export WALLAI_ENV_FILE="$environment_file"
+
+    if [ -n "${WALLAI_BUILD_LOCAL:-}" ]; then
+        build_local=$WALLAI_BUILD_LOCAL
+        return
+    fi
+
+    configured_build_local=$(configuration_value WALLAI_BUILD_LOCAL)
+    build_local=${configured_build_local:-false}
+}
+
+load_manager_configuration
 
 compose() {
     https_domain=$(awk -F= '$1 == "WALLAI_DOMAIN" { print $2 }' "$environment_file" | tail -n 1)
     configured_project_name=$(awk -F= '$1 == "WALLAI_PROJECT_NAME" { print $2 }' "$environment_file" | tail -n 1)
     project_name=${WALLAI_PROJECT_NAME:-${configured_project_name:-wallai}}
 
-    if [ "${WALLAI_BUILD_LOCAL:-false}" = "true" ]; then
+    if [ "$build_local" = "true" ]; then
         if [ -n "$https_domain" ]; then
             docker compose --project-directory "$project_directory" --project-name "$project_name" --env-file "$environment_file" \
                 -f "$project_directory/compose.yaml" -f "$project_directory/compose.build.yaml" \
@@ -103,6 +143,8 @@ prepare_configuration() {
         echo "Created $environment_file"
     fi
 
+    chmod 600 "$environment_file"
+
     umask 077
     mkdir -p "$secrets_directory"
 
@@ -115,6 +157,107 @@ prepare_configuration() {
     fi
 
     chmod 600 "$secrets_directory/app_key" "$secrets_directory/redis_password"
+}
+
+set_environment_value() {
+    configuration_key="$1"
+    configuration_value="$2"
+    temporary_environment_file=$(mktemp)
+
+    awk -v key="$configuration_key" -v value="$configuration_value" '
+        BEGIN { updated = 0 }
+        index($0, key "=") == 1 {
+            if (! updated) print key "=" value
+            updated = 1
+            next
+        }
+        { print }
+        END { if (! updated) print key "=" value }
+    ' "$environment_file" > "$temporary_environment_file"
+
+    mv "$temporary_environment_file" "$environment_file"
+    chmod 600 "$environment_file"
+}
+
+require_option_value() {
+    option_name="$1"
+    option_value=${2:-}
+
+    if [ -z "$option_value" ]; then
+        echo "$option_name requires a value." >&2
+        exit 1
+    fi
+}
+
+validate_domain() {
+    domain="$1"
+
+    case "$domain" in
+        ''|*://*|*/*|*:*|.*|*.|*[!A-Za-z0-9.-]*)
+            echo "Invalid domain: $domain" >&2
+            exit 1
+            ;;
+    esac
+}
+
+validate_port() {
+    port="$1"
+
+    case "$port" in
+        ''|*[!0-9]*)
+            echo "Invalid port: $port" >&2
+            exit 1
+            ;;
+    esac
+
+    if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo "Invalid port: $port" >&2
+        exit 1
+    fi
+}
+
+validate_project_name() {
+    project_name="$1"
+
+    case "$project_name" in
+        ''|[!A-Za-z0-9]*|*[!A-Za-z0-9_-]*)
+            echo "Invalid project name: $project_name" >&2
+            exit 1
+            ;;
+    esac
+}
+
+validate_bind_address() {
+    bind_address="$1"
+
+    case "$bind_address" in
+        ''|*[!A-Za-z0-9:._-]*)
+            echo "Invalid bind address: $bind_address" >&2
+            exit 1
+            ;;
+    esac
+}
+
+validate_image() {
+    image="$1"
+
+    case "$image" in
+        ''|*[!A-Za-z0-9./:_-]*)
+            echo "Invalid image: $image" >&2
+            exit 1
+            ;;
+    esac
+}
+
+validate_version() {
+    version="$1"
+
+    case "$version" in
+        ''|[.-]*|*[!A-Za-z0-9_.-]*)
+            echo "Invalid version: $version" >&2
+            exit 1
+            ;;
+    esac
 }
 
 require_configuration() {
@@ -133,7 +276,7 @@ require_configuration() {
 }
 
 pull_images() {
-    if [ "${WALLAI_BUILD_LOCAL:-false}" = "true" ]; then
+    if [ "$build_local" = "true" ]; then
         compose build --pull
     else
         compose pull
@@ -141,21 +284,206 @@ pull_images() {
 }
 
 install_wallai() {
+    install_local=false
+    install_domain=''
+    install_port=''
+    install_version=''
+    install_project_name=''
+    install_bind_address=''
+    install_image=''
+    install_environment_file=''
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --local)
+                install_local=true
+                shift
+                ;;
+            --domain)
+                require_option_value "$1" "${2:-}"
+                install_domain=$2
+                shift 2
+                ;;
+            --domain=*)
+                install_domain=${1#*=}
+                require_option_value --domain "$install_domain"
+                shift
+                ;;
+            --port)
+                require_option_value "$1" "${2:-}"
+                install_port=$2
+                shift 2
+                ;;
+            --port=*)
+                install_port=${1#*=}
+                require_option_value --port "$install_port"
+                shift
+                ;;
+            --version)
+                require_option_value "$1" "${2:-}"
+                install_version=$2
+                shift 2
+                ;;
+            --version=*)
+                install_version=${1#*=}
+                require_option_value --version "$install_version"
+                shift
+                ;;
+            --project-name)
+                require_option_value "$1" "${2:-}"
+                install_project_name=$2
+                shift 2
+                ;;
+            --project-name=*)
+                install_project_name=${1#*=}
+                require_option_value --project-name "$install_project_name"
+                shift
+                ;;
+            --bind-address)
+                require_option_value "$1" "${2:-}"
+                install_bind_address=$2
+                shift 2
+                ;;
+            --bind-address=*)
+                install_bind_address=${1#*=}
+                require_option_value --bind-address "$install_bind_address"
+                shift
+                ;;
+            --image)
+                require_option_value "$1" "${2:-}"
+                install_image=$2
+                shift 2
+                ;;
+            --image=*)
+                install_image=${1#*=}
+                require_option_value --image "$install_image"
+                shift
+                ;;
+            --env-file)
+                require_option_value "$1" "${2:-}"
+                install_environment_file=$2
+                shift 2
+                ;;
+            --env-file=*)
+                install_environment_file=${1#*=}
+                require_option_value --env-file "$install_environment_file"
+                shift
+                ;;
+            -h|--help)
+                show_install_help
+                return
+                ;;
+            *)
+                echo "Unknown install option: $1" >&2
+                show_install_help >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    if [ "$install_local" = "true" ] && [ -n "$install_domain" ]; then
+        echo "--local cannot be combined with --domain." >&2
+        exit 1
+    fi
+
+    if [ -n "$install_domain" ] \
+        && [ -n "$install_bind_address" ] \
+        && [ "$install_bind_address" != "127.0.0.1" ] \
+        && [ "$install_bind_address" != "::1" ]; then
+        echo "--bind-address must remain loopback when --domain enables the HTTPS proxy." >&2
+        exit 1
+    fi
+
+    if [ -n "$install_environment_file" ]; then
+        case "$install_environment_file" in
+            /*) environment_file=$install_environment_file ;;
+            *) environment_file=$project_directory/$install_environment_file ;;
+        esac
+        environment_file_was_configured=true
+    elif [ "$install_local" = "true" ] && [ "$environment_file_was_configured" = "false" ]; then
+        environment_file=$project_directory/.env.docker
+    fi
+
+    export WALLAI_ENV_FILE="$environment_file"
+
+    if [ -n "$install_domain" ]; then
+        validate_domain "$install_domain"
+    fi
+    if [ -n "$install_port" ]; then
+        validate_port "$install_port"
+    fi
+    if [ -n "$install_version" ]; then
+        validate_version "$install_version"
+    fi
+    if [ -n "$install_project_name" ]; then
+        validate_project_name "$install_project_name"
+    fi
+    if [ -n "$install_bind_address" ]; then
+        validate_bind_address "$install_bind_address"
+    fi
+    if [ -n "$install_image" ]; then
+        validate_image "$install_image"
+    fi
+
     require_docker
     prepare_configuration
+
+    if [ "$install_local" = "true" ]; then
+        local_port=${install_port:-$(configuration_value WALLAI_PORT)}
+        local_port=${local_port:-8080}
+        local_project_name=${install_project_name:-wallai-local}
+
+        set_environment_value APP_URL "http://wallai.localhost:$local_port"
+        set_environment_value WALLAI_BUILD_LOCAL true
+        set_environment_value WALLAI_IMAGE wallai
+        set_environment_value WALLAI_VERSION "${install_version:-local}"
+        set_environment_value WALLAI_PROJECT_NAME "$local_project_name"
+        set_environment_value WALLAI_BIND_ADDRESS "${install_bind_address:-127.0.0.1}"
+        set_environment_value WALLAI_PORT "$local_port"
+        set_environment_value WALLAI_DOMAIN ''
+        set_environment_value SESSION_SECURE_COOKIE false
+        set_environment_value TRUSTED_HOSTS wallai.localhost,localhost,127.0.0.1
+    elif [ -n "$install_domain" ]; then
+        set_environment_value APP_URL "https://$install_domain"
+        set_environment_value WALLAI_BUILD_LOCAL false
+        set_environment_value WALLAI_DOMAIN "$install_domain"
+        set_environment_value SESSION_SECURE_COOKIE true
+        set_environment_value TRUSTED_HOSTS "$install_domain"
+    fi
+
+    if [ "$install_local" != "true" ] && [ -n "$install_port" ]; then
+        set_environment_value WALLAI_PORT "$install_port"
+        if [ -z "$install_domain" ]; then
+            set_environment_value APP_URL "http://localhost:$install_port"
+        fi
+    fi
+    if [ "$install_local" != "true" ] && [ -n "$install_project_name" ]; then
+        set_environment_value WALLAI_PROJECT_NAME "$install_project_name"
+    fi
+    if [ "$install_local" != "true" ] && [ -n "$install_bind_address" ]; then
+        set_environment_value WALLAI_BIND_ADDRESS "$install_bind_address"
+    fi
+    if [ "$install_local" != "true" ] && [ -n "$install_version" ]; then
+        set_environment_value WALLAI_VERSION "$install_version"
+    fi
+    if [ -n "$install_image" ]; then
+        set_environment_value WALLAI_IMAGE "$install_image"
+    fi
+
+    if [ "$install_local" = "true" ]; then
+        build_local=true
+    else
+        load_manager_configuration
+    fi
+
     pull_images
     compose up -d --wait
 
-    port=$(awk -F= '$1 == "WALLAI_PORT" { print $2 }' "$environment_file" | tail -n 1)
-    port=${port:-8080}
+    application_url=$(configuration_value APP_URL)
+    application_url=${application_url:-http://localhost:8080}
 
     echo
-    domain=$(awk -F= '$1 == "WALLAI_DOMAIN" { print $2 }' "$environment_file" | tail -n 1)
-    if [ -n "$domain" ]; then
-        echo "WallAI is ready at https://$domain"
-    else
-        echo "WallAI is ready at http://localhost:$port"
-    fi
+    echo "WallAI is ready at $application_url"
     echo "Complete the first-run setup in your browser."
     echo "Run ./bin/wallai doctor to verify the deployment at any time."
 }
@@ -285,10 +613,10 @@ show_help() {
     cat <<'EOF'
 WallAI self-hosting manager
 
-Usage: ./bin/wallai <command>
+Usage: ./bin/wallai <command> [options]
 
 Commands:
-  install                 Create secrets, pull images, and start WallAI
+  install [options]       Configure, build or pull, and start WallAI
   up                      Start WallAI
   down                    Stop WallAI without deleting data
   restart                 Restart all services
@@ -303,11 +631,32 @@ Commands:
 EOF
 }
 
+show_install_help() {
+    cat <<'EOF'
+Usage: ./bin/wallai install [options]
+
+Options:
+  --local                 Build the current source and use .env.docker
+  --domain <hostname>     Configure bundled HTTPS for a public domain
+  --port <port>           Set the loopback HTTP port (default: 8080)
+  --version <tag>         Set the container version (default: latest)
+  --project-name <name>   Set the Compose project and volume prefix
+  --bind-address <address> Set the direct HTTP bind address
+  --image <repository>    Set the container image repository
+  --env-file <path>       Use a custom deployment environment file
+  -h, --help              Show install options
+
+Examples:
+  ./bin/wallai install --local
+  ./bin/wallai install --domain wallai.example.com --version 2.1.0
+EOF
+}
+
 command_name=${1:-help}
 shift || true
 
 case "$command_name" in
-    install) install_wallai ;;
+    install) install_wallai "$@" ;;
     up) require_docker; require_configuration; compose up -d --wait ;;
     down) require_docker; require_configuration; compose down ;;
     restart) require_docker; require_configuration; compose down; compose up -d --wait ;;

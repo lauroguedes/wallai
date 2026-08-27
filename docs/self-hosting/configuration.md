@@ -1,13 +1,13 @@
 # Configuration reference
 
-WallAI reads deployment configuration from `.env`. Restart services after changing it:
+WallAI reads deployment configuration from `.env`, or from `.env.docker` when installed with `./bin/wallai install --local`. The manager detects either file automatically. Restart services after changing it:
 
 ```bash
 ./bin/wallai down
 ./bin/wallai up
 ```
 
-Keep `.env` and `.secrets/` private and include both in backups.
+Keep the active environment file and `.secrets/` private and include both in backups.
 
 ## Application
 
@@ -17,6 +17,7 @@ Keep `.env` and `.secrets/` private and include both in backups.
 | `APP_TIMEZONE` | `UTC` | PHP and Laravel timezone. |
 | `WALLAI_IMAGE` | `ghcr.io/lauroguedes/wallai` | Container registry image. |
 | `WALLAI_VERSION` | `latest` | Image version; use a numbered release in production. |
+| `WALLAI_BUILD_LOCAL` | `false` | Build the current checkout through `compose.build.yaml` instead of pulling an image. |
 | `WALLAI_PROJECT_NAME` | `wallai` | Compose project and volume prefix; change it to run multiple installations. |
 | `WALLAI_BIND_ADDRESS` | `127.0.0.1` | Host interface for the direct HTTP port. |
 | `WALLAI_PORT` | `8080` | Direct HTTP port. |
