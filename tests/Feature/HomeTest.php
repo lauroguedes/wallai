@@ -36,6 +36,16 @@ it('renders the adaptive WallAI logo', function () {
         ->assertSee('fill-base-content', escape: false);
 });
 
+it('renders accessible device preview controls', function () {
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('device-toggle-button', escape: false)
+        ->assertSee('aria-label="Mobile preview"', escape: false)
+        ->assertSee('aria-label="Desktop preview"', escape: false)
+        ->assertSee(':aria-pressed="deviceType === \'mobile\'"', escape: false)
+        ->assertSee(':aria-pressed="deviceType === \'desktop\'"', escape: false);
+});
+
 it('does not render account controls in session mode', function () {
     $this->get('/')
         ->assertOk()

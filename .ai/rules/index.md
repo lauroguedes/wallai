@@ -18,5 +18,6 @@ Before planning or editing, find the row whose globs match the file's path and r
 | compose*.yaml | .ai/rules/general.md |
 | app/Http/Middleware/**, resources/views/pages/**, routes/web.php | .ai/rules/pages.md |
 | resources/views/** | .ai/rules/resources-views.md |
+| resources/** | .ai/rules/resources.md |
 | resources/js/**, resources/views/** | .ai/rules/views.md |
 | bin/wallai | .ai/rules/wallai.md |

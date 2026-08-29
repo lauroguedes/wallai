@@ -21,12 +21,16 @@ it('renders with empty state showing logo', function () {
 
 it('renders mobile mockup when device type is mobile', function () {
     Livewire::test('preview', ['deviceType' => 'mobile'])
-        ->assertSeeHtml('mockup-phone');
+        ->assertSeeHtml('mockup-phone')
+        ->assertSeeHtml('from-base-200')
+        ->assertSeeHtml('dark:from-slate-700');
 });
 
 it('renders desktop mockup when device type is desktop', function () {
     Livewire::test('preview', ['deviceType' => 'desktop'])
-        ->assertSeeHtml('border-2 border-primary');
+        ->assertSeeHtml('border-2 border-primary')
+        ->assertSeeHtml('from-base-200')
+        ->assertSeeHtml('dark:from-slate-700');
 });
 
 it('loads wallpapers from session cache on mount', function () {

@@ -33,12 +33,16 @@ new class extends Component {
                     <div class="join hidden md:flex rounded-2xl border border-base-200 p-1 backdrop-blur-md bg-base-100/50">
                         <button @click="deviceType = 'mobile'; $dispatch('device-type-set', { type: 'mobile' })"
                                 :class="deviceType === 'mobile' ? 'btn-active' : ''"
-                                class="btn btn-soft rounded-s-2xl join-item">
+                                :aria-pressed="deviceType === 'mobile'"
+                                aria-label="Mobile preview"
+                                class="device-toggle-button btn btn-soft rounded-s-2xl join-item">
                             <x-icon name="lucide.smartphone" class="w-5 h-5" />
                         </button>
                         <button @click="deviceType = 'desktop'; $dispatch('device-type-set', { type: 'desktop' })"
                                 :class="deviceType === 'desktop' ? 'btn-active' : ''"
-                                class="btn btn-soft rounded-e-2xl join-item">
+                                :aria-pressed="deviceType === 'desktop'"
+                                aria-label="Desktop preview"
+                                class="device-toggle-button btn btn-soft rounded-e-2xl join-item">
                             <x-icon name="lucide.monitor" class="w-5 h-5" />
                         </button>
                     </div>

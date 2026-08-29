@@ -173,7 +173,7 @@ new class extends Component {
 
     @if($deviceType === 'mobile')
         {{-- Fullscreen mobile — no mockup frame (visible on mobile devices only) --}}
-        <div class="md:hidden w-full h-screen relative bg-linear-to-tr from-slate-700 to-gray-900 flex items-center justify-center">
+        <div class="md:hidden w-full h-screen relative bg-linear-to-tr from-base-200 to-base-300 dark:from-slate-700 dark:to-gray-900 flex items-center justify-center">
             @if($isLoading)
                 <x-preview.loading-overlay :loadingPhrase="$loadingPhrase" />
             @endif
@@ -210,7 +210,7 @@ new class extends Component {
             <div class="mockup-phone border-primary h-full w-auto max-w-none group/mockup">
                 <div class="mockup-phone-camera"></div>
                 <div class="mockup-phone-display">
-                    <div class="relative w-full h-full bg-linear-to-tr from-slate-700 to-gray-900 flex items-center justify-center">
+                    <div class="relative w-full h-full bg-linear-to-tr from-base-200 to-base-300 dark:from-slate-700 dark:to-gray-900 flex items-center justify-center">
                         @if($isLoading)
                             <x-preview.loading-overlay :loadingPhrase="$loadingPhrase" />
                         @endif
@@ -242,7 +242,7 @@ new class extends Component {
         {{-- Desktop layout: monitor mockup --}}
         <div class="flex flex-col items-center gap-3 w-full">
             <x-mockup-monitor>
-                <div class="relative bg-linear-to-tr from-slate-700 to-gray-900 flex items-center justify-center aspect-video group/mockup">
+                <div class="relative bg-linear-to-tr from-base-200 to-base-300 dark:from-slate-700 dark:to-gray-900 flex items-center justify-center aspect-video group/mockup">
                     @if($isLoading)
                         <x-preview.loading-overlay :loadingPhrase="$loadingPhrase" />
                     @endif

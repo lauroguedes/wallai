@@ -22,7 +22,9 @@ it('compiles the configured light and dark themes', function () {
 
     expect($css)
         ->toContain('themes: light --default, dark --prefersdark;')
-        ->toContain('@custom-variant dark (&:where(.dark, .dark *));');
+        ->toContain('@custom-variant dark (&:where(.dark, .dark *));')
+        ->toContain('.dark .left-side-bg')
+        ->toContain('.light .device-toggle-button.btn-active');
 });
 
 it('enforces production deployment checks only in production containers', function () {
