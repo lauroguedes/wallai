@@ -4,11 +4,14 @@ All notable changes to WallAI are documented here. Releases follow Semantic Vers
 
 ## Unreleased
 
+## 2.1.1 - 2026-08-29
+
 ### Added
 
 - Zero-configuration local Docker source builds through `./bin/wallai install --local`.
 - Installer options for production domains, versions, ports, bind addresses, project names, images, and environment files.
 - Persistent light and dark themes through the Mary UI theme toggle.
+- A complete branded favicon and web app manifest set for browsers, Apple devices, Android devices, and installed web apps.
 
 ### Changed
 
@@ -17,6 +20,7 @@ All notable changes to WallAI are documented here. Releases follow Semantic Vers
 - Frontend builds now use Node.js 26 and include Mary UI vendor templates during Tailwind compilation.
 - Local Docker installs run with `APP_ENV=local` and debug mode enabled, while public-domain installs enforce production-safe values.
 - The WallAI logo now uses the new adaptive primary, secondary, and foreground SVG artwork.
+- Sidebar patterns, preview mockups, and device selection controls now render correctly in both light and dark themes.
 
 ### Security
 
