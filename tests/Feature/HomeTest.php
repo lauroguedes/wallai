@@ -27,6 +27,15 @@ it('renders the preview component', function () {
         ->assertSeeLivewire('preview');
 });
 
+it('renders the adaptive WallAI logo', function () {
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('data-wallai-logo', escape: false)
+        ->assertSee('fill-primary', escape: false)
+        ->assertSee('fill-secondary', escape: false)
+        ->assertSee('fill-base-content', escape: false);
+});
+
 it('does not render account controls in session mode', function () {
     $this->get('/')
         ->assertOk()

@@ -111,6 +111,8 @@ it('passes the configured project name explicitly to compose', function () {
 });
 
 it('configures and remembers a local source build', function () {
+    File::put($this->isolatedProjectDirectory.'/.env', "WALLAI_PROJECT_NAME=native\n");
+
     $processEnvironment = [
         'PATH' => $this->fakeBinaryDirectory.':'.getenv('PATH'),
         'WALLAI_DOCKER_LOG' => $this->dockerLog,
@@ -129,6 +131,8 @@ it('configures and remembers a local source build', function () {
     expect($install->isSuccessful())->toBeTrue()
         ->and($install->getOutput())->toContain('http://wallai.localhost:8080')
         ->and($environment)->toContain('APP_URL=http://wallai.localhost:8080')
+        ->toContain('APP_ENV=local')
+        ->toContain('APP_DEBUG=true')
         ->toContain('WALLAI_BUILD_LOCAL=true')
         ->toContain('WALLAI_IMAGE=wallai')
         ->toContain('WALLAI_VERSION=local')
@@ -149,7 +153,9 @@ it('configures and remembers a local source build', function () {
 
     expect($doctor->isSuccessful())->toBeTrue()
         ->and(File::get($this->dockerLog))->toContain('--env-file '.$environmentFile)
-        ->toContain('compose.build.yaml');
+        ->toContain('compose.build.yaml')
+        ->toContain('wallai:doctor --runtime')
+        ->not->toContain('wallai:doctor --deployment');
 });
 
 it('configures a production domain from install options', function () {
@@ -182,6 +188,8 @@ it('configures a production domain from install options', function () {
     expect($install->isSuccessful())->toBeTrue()
         ->and($install->getOutput())->toContain('https://wallai.example.com')
         ->and($environment)->toContain('APP_URL=https://wallai.example.com')
+        ->toContain('APP_ENV=production')
+        ->toContain('APP_DEBUG=false')
         ->toContain('WALLAI_DOMAIN=wallai.example.com')
         ->toContain('SESSION_SECURE_COOKIE=true')
         ->toContain('TRUSTED_HOSTS=wallai.example.com')
@@ -189,6 +197,22 @@ it('configures a production domain from install options', function () {
         ->toContain('WALLAI_PORT=9090')
         ->toContain('WALLAI_PROJECT_NAME=wallai-prod')
         ->and(File::get($this->dockerLog))->not->toContain('compose.build.yaml');
+
+    File::put($this->dockerLog, '');
+
+    $doctor = new Process(
+        [$this->isolatedProjectDirectory.'/bin/wallai', 'doctor'],
+        $this->isolatedProjectDirectory,
+        [
+            'PATH' => $this->fakeBinaryDirectory.':'.getenv('PATH'),
+            'WALLAI_DOCKER_LOG' => $this->dockerLog,
+            'WALLAI_ENV_FILE' => $environmentFile,
+        ],
+    );
+    $doctor->run();
+
+    expect($doctor->isSuccessful())->toBeTrue()
+        ->and(File::get($this->dockerLog))->toContain('wallai:doctor --deployment --runtime');
 });
 
 it('rejects conflicting local and production install modes', function () {

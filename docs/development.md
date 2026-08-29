@@ -2,7 +2,7 @@
 
 ## Native development
 
-Requirements: PHP 8.4+, Composer, Node.js, and Redis.
+Requirements: PHP 8.4+, Composer, Node.js 26+, and Redis.
 
 ```bash
 composer install

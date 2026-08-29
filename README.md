@@ -42,6 +42,7 @@ Local mode creates an ignored `.env.docker`, builds the source with Docker, and 
 
 | Local value | Purpose |
 | --- | --- |
+| `APP_ENV=local`, `APP_DEBUG=true` | Enables local diagnostics while testing the current checkout. |
 | `WALLAI_BUILD_LOCAL=true` | Builds the current checkout instead of pulling GHCR. |
 | `WALLAI_IMAGE=wallai`, `WALLAI_VERSION=local` | Gives the local image a predictable name. |
 | `WALLAI_PROJECT_NAME=wallai-local` | Keeps local containers and volumes isolated. |
@@ -107,7 +108,7 @@ Run `./bin/wallai help` for every available command.
 
 ## Local development
 
-Native development requires PHP 8.4 or newer, Node.js, and Redis. Docker source builds require only Docker. See the [development guide](docs/development.md).
+Native development requires PHP 8.4 or newer, Node.js 26 or newer, and Redis. Docker source builds require only Docker. See the [development guide](docs/development.md).
 
 ## License
 

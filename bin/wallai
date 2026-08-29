@@ -7,10 +7,10 @@ environment_file_was_configured=false
 if [ -n "${WALLAI_ENV_FILE:-}" ]; then
     environment_file=$WALLAI_ENV_FILE
     environment_file_was_configured=true
-elif [ -f "$project_directory/.env" ]; then
-    environment_file=$project_directory/.env
 elif [ -f "$project_directory/.env.docker" ]; then
     environment_file=$project_directory/.env.docker
+elif [ -f "$project_directory/.env" ]; then
+    environment_file=$project_directory/.env
 else
     environment_file=$project_directory/.env
 fi
@@ -434,6 +434,8 @@ install_wallai() {
         local_project_name=${install_project_name:-wallai-local}
 
         set_environment_value APP_URL "http://wallai.localhost:$local_port"
+        set_environment_value APP_ENV local
+        set_environment_value APP_DEBUG true
         set_environment_value WALLAI_BUILD_LOCAL true
         set_environment_value WALLAI_IMAGE wallai
         set_environment_value WALLAI_VERSION "${install_version:-local}"
@@ -445,6 +447,8 @@ install_wallai() {
         set_environment_value TRUSTED_HOSTS wallai.localhost,localhost,127.0.0.1
     elif [ -n "$install_domain" ]; then
         set_environment_value APP_URL "https://$install_domain"
+        set_environment_value APP_ENV production
+        set_environment_value APP_DEBUG false
         set_environment_value WALLAI_BUILD_LOCAL false
         set_environment_value WALLAI_DOMAIN "$install_domain"
         set_environment_value SESSION_SECURE_COOKIE true
@@ -662,7 +666,15 @@ case "$command_name" in
     restart) require_docker; require_configuration; compose down; compose up -d --wait ;;
     status) require_docker; require_configuration; compose ps ;;
     logs) require_docker; require_configuration; compose logs --follow --tail=200 "$@" ;;
-    doctor) require_docker; require_configuration; compose exec -T web wallai-entrypoint php artisan wallai:doctor --deployment --runtime ;;
+    doctor)
+        require_docker
+        require_configuration
+        if [ "$(configuration_value APP_ENV)" = "production" ]; then
+            compose exec -T web wallai-entrypoint php artisan wallai:doctor --deployment --runtime
+        else
+            compose exec -T web wallai-entrypoint php artisan wallai:doctor --runtime
+        fi
+        ;;
     backup) backup_wallai "${1:-}" ;;
     restore) restore_wallai "${1:-}" "${2:-}" ;;
     update) update_wallai ;;

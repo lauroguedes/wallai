@@ -16,4 +16,9 @@ until php artisan migrate --force --no-interaction; do
 done
 
 php artisan schedule:run --no-interaction
-php artisan wallai:doctor --deployment
+
+if [ "${APP_ENV:-production}" = "production" ]; then
+    php artisan wallai:doctor --deployment
+else
+    php artisan wallai:doctor
+fi

@@ -8,11 +8,15 @@ All notable changes to WallAI are documented here. Releases follow Semantic Vers
 
 - Zero-configuration local Docker source builds through `./bin/wallai install --local`.
 - Installer options for production domains, versions, ports, bind addresses, project names, images, and environment files.
+- Persistent light and dark themes through the Mary UI theme toggle.
 
 ### Changed
 
 - Docker management commands automatically reuse `.env.docker` when no `.env` exists.
 - The README now includes project status badges and concise local and production Docker instructions.
+- Frontend builds now use Node.js 26 and include Mary UI vendor templates during Tailwind compilation.
+- Local Docker installs run with `APP_ENV=local` and debug mode enabled, while public-domain installs enforce production-safe values.
+- The WallAI logo now uses the new adaptive primary, secondary, and foreground SVG artwork.
 
 ### Security
 

@@ -56,6 +56,7 @@ it('separates provider and account settings with Mary UI tabs', function () {
         ->assertSee($admin->name)
         ->assertSee('data-tip="Settings"', escape: false)
         ->assertSee("aria-label=\"Settings for {$admin->name}\"", escape: false)
+        ->assertSee('aria-label="Toggle color theme"', escape: false)
         ->assertSee('Provider Selection')
         ->assertSee('Account')
         ->assertSeeLivewire('account-settings');
@@ -328,6 +329,7 @@ it('renders the settings button on the home page', function () {
 
     $response->assertSuccessful()
         ->assertSee('data-tip="Settings"', escape: false)
+        ->assertSee('aria-label="Toggle color theme"', escape: false)
         ->assertSee('aria-label="Settings"', escape: false)
         ->assertDontSee('AI provider settings');
 });

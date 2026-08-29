@@ -3,6 +3,7 @@ paths:
   - 'docker/**'
   - 'docker/*.sh'
   - docker/entrypoint.sh
+  - docker/initialize.sh
 ---
 
 # Docker
@@ -18,3 +19,6 @@ Load file-backed secrets before any application code, then immediately re-exec t
 
 ## Bootstrap Laravel only for container startup
 Run package discovery and optimization only when the entrypoint is PID 1. Health checks and maintenance commands invoke the same entrypoint to load secrets and drop privileges, but must not re-bootstrap Laravel or pollute command output.
+
+## Make initialization checks environment-aware
+Local images intentionally run with APP_ENV=local and APP_DEBUG=true, so initialization runs the general doctor checks. Production initialization must keep the stricter --deployment checks.

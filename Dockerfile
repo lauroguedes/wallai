@@ -1,16 +1,5 @@
 # syntax=docker/dockerfile:1.4@sha256:9ba7531bd80fb0a858632727cf7a112fbfd19b17e94c4e84ced81e24ef1a0dbc
 
-FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS frontend
-
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
-
-COPY vite.config.js ./
-COPY resources ./resources
-RUN npm run build
-
 FROM composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 AS composer
 
 FROM dunglas/frankenphp:1.12.7-builder-php8.5-bookworm@sha256:48f74f8e25f053bd9381220f0487c064d8835eaf6f794f1d197531d4d3fcc798 AS frankenphp-builder
@@ -66,6 +55,19 @@ RUN composer dump-autoload \
     --no-interaction \
     --no-scripts \
     --classmap-authoritative
+
+FROM node:26.8.1-bookworm-slim@sha256:367679cf9792759492a486e4aa4b421764d71a9546a6dae8aab81a99eb797b3e AS frontend
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+
+COPY vite.config.js ./
+COPY resources ./resources
+COPY --from=composer-dependencies /app/vendor/laravel/framework/src/Illuminate/Pagination/resources/views ./vendor/laravel/framework/src/Illuminate/Pagination/resources/views
+COPY --from=composer-dependencies /app/vendor/robsontenorio/mary/src/View/Components ./vendor/robsontenorio/mary/src/View/Components
+RUN npm run build
 
 FROM php-runtime AS runtime
 

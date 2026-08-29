@@ -13,3 +13,6 @@ All destructive or confirmation flows must use a Mary UI <x-modal> controlled by
 
 ## Use server actions for conditional Livewire markup
 Client-side `$wire` assignments are appropriate for opening Mary UI modals that are already rendered. When a Livewire property controls server-rendered Blade conditionals such as `@if`, change it through `wire:click` or another Livewire request so the component rerenders; deferred Alpine assignment alone will not replace the markup.
+
+## Use Mary UI for persistent color themes
+Keep a single Mary UI x-theme-toggle beside the settings control. DaisyUI enables light as default and dark as prefersdark, Tailwind's dark variant follows the `.dark` class, and inline brand SVG colors use theme tokens.

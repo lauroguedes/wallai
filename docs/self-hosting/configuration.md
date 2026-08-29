@@ -15,6 +15,7 @@ Keep the active environment file and `.secrets/` private and include both in bac
 | --- | --- | --- |
 | `APP_URL` | `http://localhost:8080` | Canonical public URL used in generated links. |
 | `APP_TIMEZONE` | `UTC` | PHP and Laravel timezone. |
+| `APP_ENV`, `APP_DEBUG` | `production`, `false` | `install --local` changes these to `local` and `true`; public-domain installs enforce production-safe values. |
 | `WALLAI_IMAGE` | `ghcr.io/lauroguedes/wallai` | Container registry image. |
 | `WALLAI_VERSION` | `latest` | Image version; use a numbered release in production. |
 | `WALLAI_BUILD_LOCAL` | `false` | Build the current checkout through `compose.build.yaml` instead of pulling an image. |

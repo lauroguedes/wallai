@@ -289,22 +289,28 @@ new class extends Component {
 ?>
 
 <div>
-    @if($authenticationEnabled)
-        <x-button
-            wire:click="$toggle('showDrawer')"
-            icon="lucide.settings"
-            label="{{ auth()->user()->name }}"
-            class="btn-soft fixed right-5 top-5 z-30 max-w-[min(16rem,calc(100vw-2.5rem))] border border-base-200 bg-base-100/60 backdrop-blur-md"
-            tooltip-left="Settings"
-            aria-label="Settings for {{ auth()->user()->name }}" />
-    @else
-        <x-button
-            wire:click="$toggle('showDrawer')"
-            icon="lucide.settings"
-            class="btn-circle btn-soft fixed right-5 top-5 z-30 border border-base-200 bg-base-100/60 backdrop-blur-md"
-            tooltip-left="Settings"
-            aria-label="Settings" />
-    @endif
+    <div class="fixed right-5 top-5 z-30 flex items-center gap-2">
+        <x-theme-toggle
+            class="btn btn-circle btn-soft border border-base-200 bg-base-100/60 backdrop-blur-md"
+            aria-label="Toggle color theme" />
+
+        @if($authenticationEnabled)
+            <x-button
+                wire:click="$toggle('showDrawer')"
+                icon="lucide.settings"
+                label="{{ auth()->user()->name }}"
+                class="btn-soft max-w-[min(16rem,calc(100vw-6rem))] border border-base-200 bg-base-100/60 backdrop-blur-md"
+                tooltip-left="Settings"
+                aria-label="Settings for {{ auth()->user()->name }}" />
+        @else
+            <x-button
+                wire:click="$toggle('showDrawer')"
+                icon="lucide.settings"
+                class="btn-circle btn-soft border border-base-200 bg-base-100/60 backdrop-blur-md"
+                tooltip-left="Settings"
+                aria-label="Settings" />
+        @endif
+    </div>
 
     @teleport('body')
         <x-drawer

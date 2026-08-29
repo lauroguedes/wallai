@@ -10,3 +10,6 @@ Pin Dockerfile frontend 1.4 because the project uses no newer-only instructions 
 
 ## Build a security-patched FrankenPHP binary
 Build FrankenPHP from the version-matched official builder and pin security-sensitive Go dependency upgrades. Keep the resulting runtime image clean under the repository's HIGH/CRITICAL Trivy gate.
+
+## Compile CSS with vendor component sources
+The Tailwind frontend stage must run after composer-dependencies and copy the Mary UI component templates plus Laravel pagination views into /app/vendor before `npm run build`. Without those @source targets, Docker silently produces an incomplete CSS bundle.
