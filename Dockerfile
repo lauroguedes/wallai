@@ -2,7 +2,7 @@
 
 FROM composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 AS composer
 
-FROM dunglas/frankenphp:1.12.7-builder-php8.5-bookworm@sha256:48f74f8e25f053bd9381220f0487c064d8835eaf6f794f1d197531d4d3fcc798 AS frankenphp-builder
+FROM dunglas/frankenphp:1.12.7-builder-php8.5-bookworm@sha256:ee2dc40b945ed5c8c365988ab0389e5301838448563ede79c25abba0db7406e4 AS frankenphp-builder
 
 COPY docker/frankenphp/main.go /go/src/app/caddy/frankenphp/main.go
 
@@ -17,7 +17,7 @@ RUN GOBIN=/usr/local/bin ../../go.sh install \
     -ldflags "-w -s -X 'github.com/caddyserver/caddy/v2.CustomVersion=FrankenPHP v1.12.7 PHP $PHP_VERSION Caddy' -X 'github.com/caddyserver/caddy/v2.CustomBinaryName=frankenphp' -X 'github.com/caddyserver/caddy/v2/modules/caddyhttp.ServerHeader=FrankenPHP Caddy'" \
     -buildvcs=true
 
-FROM dunglas/frankenphp:1.12.7-php8.5-bookworm@sha256:8896df27f5fe22f4be4628a2cabfc9959229e1010b2890019f6768139a3dfbcf AS php-runtime
+FROM dunglas/frankenphp:1.12.7-php8.5-bookworm@sha256:519536270a58121c28f63bdb97f9a330b2e53922029792631cf50fe953ecd8d0 AS php-runtime
 
 COPY --from=frankenphp-builder /usr/local/bin/frankenphp /usr/local/bin/frankenphp
 
