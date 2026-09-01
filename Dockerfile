@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4@sha256:9ba7531bd80fb0a858632727cf7a112fbfd19b17e94c4e84ced81e24ef1a0dbc
 
-FROM composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 AS composer
+FROM composer:2@sha256:d020706319701a44468968321dccd0fce6620190159a7a9ec195d78e6e971c71 AS composer
 
 FROM dunglas/frankenphp:1.12.7-builder-php8.5-bookworm@sha256:48f74f8e25f053bd9381220f0487c064d8835eaf6f794f1d197531d4d3fcc798 AS frankenphp-builder
 
