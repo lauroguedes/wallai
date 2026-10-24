@@ -4,11 +4,16 @@ FROM composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd
 
 FROM dunglas/frankenphp:1.12.7-builder-php8.5-bookworm@sha256:48f74f8e25f053bd9381220f0487c064d8835eaf6f794f1d197531d4d3fcc798 AS frankenphp-builder
 
+ENV GOTOOLCHAIN=go1.26.10
+
 COPY docker/frankenphp/main.go /go/src/app/caddy/frankenphp/main.go
 
 WORKDIR /go/src/app/caddy
 
-RUN go get google.golang.org/grpc@v1.82.1 \
+RUN go get google.golang.org/grpc@v1.83.1 \
+        golang.org/x/crypto@v0.55.0 \
+        golang.org/x/net@v0.60.0 \
+        golang.org/x/text@v0.41.0 \
         go.opentelemetry.io/otel/log@v0.20.0 \
         go.opentelemetry.io/otel/sdk/log@v0.20.0 \
     && go mod tidy
@@ -36,6 +41,10 @@ RUN install-php-extensions \
     zip \
     && if [ -n "$(getcap /usr/local/bin/frankenphp)" ]; then setcap -r /usr/local/bin/frankenphp; fi \
     && command -v setpriv > /dev/null
+
+RUN apt-get update \
+    && apt-get upgrade --yes --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 FROM php-runtime AS composer-dependencies
 
