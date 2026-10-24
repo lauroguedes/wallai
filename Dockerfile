@@ -4,24 +4,19 @@ FROM composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd
 
 FROM dunglas/frankenphp:1.13.0-builder-php8.5-bookworm@sha256:404c4af6a69f49ecc76b910aaad0d97bbb2e59d28f95eef43f211b6bdc0c549c AS frankenphp-builder
 
-ENV GOTOOLCHAIN=go1.26.10
+ENV GOTOOLCHAIN=go1.27.3
 
 COPY docker/frankenphp/main.go /go/src/app/caddy/frankenphp/main.go
 
 WORKDIR /go/src/app/caddy
 
-RUN go get google.golang.org/grpc@v1.83.2 \
-        golang.org/x/crypto@v0.57.0 \
-        golang.org/x/net@v0.60.0 \
-        golang.org/x/text@v0.42.0 \
-        go.opentelemetry.io/otel/log@v0.20.0 \
-        go.opentelemetry.io/otel/sdk/log@v0.20.0 \
+RUN go get golang.org/x/net@v0.60.0 \
     && go mod tidy
 
 WORKDIR /go/src/app/caddy/frankenphp
 
 RUN GOBIN=/usr/local/bin ../../go.sh install \
-    -ldflags "-w -s -X 'github.com/caddyserver/caddy/v2.CustomVersion=FrankenPHP v1.12.7 PHP $PHP_VERSION Caddy' -X 'github.com/caddyserver/caddy/v2.CustomBinaryName=frankenphp' -X 'github.com/caddyserver/caddy/v2/modules/caddyhttp.ServerHeader=FrankenPHP Caddy'" \
+    -ldflags "-w -s -X 'github.com/caddyserver/caddy/v2.CustomVersion=FrankenPHP v1.13.0 PHP $PHP_VERSION Caddy' -X 'github.com/caddyserver/caddy/v2.CustomBinaryName=frankenphp' -X 'github.com/caddyserver/caddy/v2/modules/caddyhttp.ServerHeader=FrankenPHP Caddy'" \
     -buildvcs=true
 
 FROM dunglas/frankenphp:1.13.0-php8.5-bookworm@sha256:265db135c5bddce6e3aab85d8943052d37a2f0b75211a21fec5ab5ff05826713 AS php-runtime
