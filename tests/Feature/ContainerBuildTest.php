@@ -11,7 +11,7 @@ it('builds frontend assets with the current stable Node release and UI sources',
     );
 
     expect($dockerfile)
-        ->toContain('FROM node:26.8.1-bookworm-slim@sha256:367679cf9792759492a486e4aa4b421764d71a9546a6dae8aab81a99eb797b3e AS frontend')
+        ->toContain('FROM node:26.12.0-bookworm-slim@sha256:742a0fe7320e09e0321222b68165e6ac731d30470e7ea7f98f9bfc3a6e1034fe AS frontend')
         ->and($marySourcePosition)->not->toBeFalse()
         ->and($frontendBuildPosition)->not->toBeFalse()
         ->and($marySourcePosition)->toBeLessThan($frontendBuildPosition);
