@@ -10,7 +10,7 @@ COPY docker/frankenphp/main.go /go/src/app/caddy/frankenphp/main.go
 
 WORKDIR /go/src/app/caddy
 
-RUN go get google.golang.org/grpc@v1.83.1 \
+RUN go get google.golang.org/grpc@v1.83.2 \
         golang.org/x/crypto@v0.57.0 \
         golang.org/x/net@v0.60.0 \
         golang.org/x/text@v0.42.0 \
