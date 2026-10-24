@@ -9,6 +9,8 @@ COPY docker/frankenphp/main.go /go/src/app/caddy/frankenphp/main.go
 WORKDIR /go/src/app/caddy
 
 RUN go get google.golang.org/grpc@v1.82.1 \
+        go.opentelemetry.io/otel/log@v0.20.0 \
+        go.opentelemetry.io/otel/sdk/log@v0.20.0 \
     && go mod tidy
 
 WORKDIR /go/src/app/caddy/frankenphp
