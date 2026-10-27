@@ -62,7 +62,7 @@ RUN composer dump-autoload \
     --no-scripts \
     --classmap-authoritative
 
-FROM node:26.12.0-bookworm-slim@sha256:742a0fe7320e09e0321222b68165e6ac731d30470e7ea7f98f9bfc3a6e1034fe AS frontend
+FROM node:26.12.1-bookworm-slim@sha256:28147155d47dc31abe0a46e0d12b59b2fb3d0a2dcc5dc65fce76a074180b16fe AS frontend
 
 WORKDIR /app
 
