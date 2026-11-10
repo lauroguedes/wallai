@@ -10,7 +10,7 @@
         "dev": "vite"
     },
     "devDependencies": {
-        "@tailwindcss/vite": "^4.3.3",
+        "@tailwindcss/vite": "^4.3.5",
         "concurrently": "^10.0.5",
         "daisyui": "^5.7.50",
         "laravel-vite-plugin": "^3.2.0",
